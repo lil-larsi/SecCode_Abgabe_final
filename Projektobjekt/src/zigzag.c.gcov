@@ -1,0 +1,52 @@
+        -:    0:Source:zigzag.c
+        -:    0:Graph:zigzag.gcno
+        -:    0:Data:zigzag.gcda
+        -:    0:Runs:24527
+        -:    1:/* 包含头文件 */
+        -:    2:#include "zigzag.h"
+        -:    3:
+        -:    4:/* 内部全局变量定义 */
+        -:    5:const int ZIGZAG[64] =
+        -:    6:{
+        -:    7:     0,  1,  8, 16,  9,  2,  3, 10,
+        -:    8:    17, 24, 32, 25, 18, 11,  4,  5,
+        -:    9:    12, 19, 26, 33, 40, 48, 41, 34,
+        -:   10:    27, 20, 13,  6,  7, 14, 21, 28,
+        -:   11:    35, 42, 49, 56, 57, 50, 43, 36,
+        -:   12:    29, 22, 15, 23, 30, 37, 44, 51,
+        -:   13:    58, 59, 52, 45, 38, 31, 39, 46,
+        -:   14:    53, 60, 61, 54, 47, 55, 62, 63,
+        -:   15:};
+        -:   16:
+        -:   17:/* 函数实现 */
+function zigzag_encode called 39909774 returned 100% blocks executed 100%
+ 39909774:   18:void zigzag_encode(int *data)
+        -:   19:{
+        -:   20:    int buf[64], i;
+2594135310:   21:    for (i=0; i<64; i++) buf [i] = data[ZIGZAG[i]];
+branch  0 taken 98%
+branch  1 taken 2% (fallthrough)
+2594135310:   22:    for (i=0; i<64; i++) data[i] = buf[i];
+branch  0 taken 98%
+branch  1 taken 2% (fallthrough)
+ 39909774:   23:}
+        -:   24:
+function zigzag_decode called 0 returned 0% blocks executed 0%
+    #####:   25:void zigzag_decode(int *data)
+        -:   26:{
+        -:   27:    int buf[64], i;
+    #####:   28:    for (i=0; i<64; i++) buf [ZIGZAG[i]] = data[i];
+branch  0 never executed
+branch  1 never executed
+    #####:   29:    for (i=0; i<64; i++) data[i] = buf[i];
+branch  0 never executed
+branch  1 never executed
+    #####:   30:}
+        -:   31:
+        -:   32:
+        -:   33:
+        -:   34:
+        -:   35:
+        -:   36:
+        -:   37:
+        -:   38:

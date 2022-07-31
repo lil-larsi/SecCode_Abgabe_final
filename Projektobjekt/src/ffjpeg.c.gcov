@@ -1,0 +1,60 @@
+        -:    0:Source:ffjpeg.c
+        -:    0:Graph:ffjpeg.gcno
+        -:    0:Data:ffjpeg.gcda
+        -:    0:Runs:24527
+        -:    1:// 包含头文件
+        -:    2:#include <stdlib.h>
+        -:    3:#include <stdio.h>
+        -:    4:#include <string.h>
+        -:    5:#include "jfif.h"
+        -:    6:#include "bmp.h"
+        -:    7:
+function main called 24527 returned 100% blocks executed 61%
+    24527:    8:int main(int argc, char *argv[])
+        -:    9:{
+    24527:   10:    void *jfif = NULL;
+    24527:   11:    BMP   bmp  = {0};
+        -:   12:
+    24527:   13:    if (argc < 3) {
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+    #####:   14:        printf(
+call    0 never executed
+        -:   15:            "jfif test program\n"
+        -:   16:            "usage: ffjpeg -d filename decode jpg file to decode.bmp\n"
+        -:   17:            "       ffjpeg -e filename encode bmp file to encode.jpg\n"
+        -:   18:        );
+    #####:   19:        return 0;
+        -:   20:    }
+        -:   21:
+    24527:   22:    if (strcmp(argv[1], "-d") == 0) {
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+    #####:   23:        jfif = jfif_load(argv[2]);
+call    0 never executed
+    #####:   24:        jfif_decode(jfif, &bmp);
+call    0 never executed
+    #####:   25:        jfif_free  (jfif);
+call    0 never executed
+    #####:   26:        bmp_save(&bmp, "decode.bmp");
+call    0 never executed
+    #####:   27:        bmp_free(&bmp);
+call    0 never executed
+    24527:   28:    } else if (strcmp(argv[1], "-e") == 0) {
+branch  0 taken 100% (fallthrough)
+branch  1 taken 0%
+    24527:   29:        bmp_load(&bmp, argv[2]);
+call    0 returned 100%
+    24527:   30:        jfif = jfif_encode(&bmp);
+call    0 returned 100%
+    24527:   31:        bmp_free(&bmp);
+call    0 returned 100%
+    24527:   32:        jfif_save(jfif, "encode.jpg");
+call    0 returned 100%
+    24527:   33:        jfif_free(jfif);
+call    0 returned 100%
+        -:   34:    }
+        -:   35:
+    24527:   36:    return 0;
+        -:   37:}
+        -:   38:

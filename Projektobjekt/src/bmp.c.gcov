@@ -1,0 +1,164 @@
+        -:    0:Source:bmp.c
+        -:    0:Graph:bmp.gcno
+        -:    0:Data:bmp.gcda
+        -:    0:Runs:24527
+        -:    1:// 包含头文件
+        -:    2:#include <stdlib.h>
+        -:    3:#include <stdio.h>
+        -:    4:#include "stdefine.h"
+        -:    5:#include "bmp.h"
+        -:    6:
+        -:    7:#define TEST_BMP  0
+        -:    8:
+        -:    9:// 内部类型定义
+        -:   10:#pragma pack(1)
+        -:   11:typedef struct { 
+        -:   12:    WORD   bfType;
+        -:   13:    DWORD  bfSize;
+        -:   14:    WORD   bfReserved1;
+        -:   15:    WORD   bfReserved2;
+        -:   16:    DWORD  bfOffBits;
+        -:   17:    DWORD  biSize;
+        -:   18:    DWORD  biWidth;
+        -:   19:    DWORD  biHeight;
+        -:   20:    WORD   biPlanes;
+        -:   21:    WORD   biBitCount;
+        -:   22:    DWORD  biCompression;
+        -:   23:    DWORD  biSizeImage;
+        -:   24:    DWORD  biXPelsPerMeter;
+        -:   25:    DWORD  biYPelsPerMeter;
+        -:   26:    DWORD  biClrUsed;
+        -:   27:    DWORD  biClrImportant;
+        -:   28:} BMPFILEHEADER;
+        -:   29:#pragma pack()
+        -:   30:
+        -:   31:/* 函数实现 */
+function bmp_load called 24527 returned 100% blocks executed 94%
+    24527:   32:int bmp_load(BMP *pb, char *file)
+        -:   33:{
+    24527:   34:    BMPFILEHEADER header = {0};
+    24527:   35:    FILE         *fp     = NULL;
+    24527:   36:    BYTE         *pdata  = NULL;
+        -:   37:    int           i;
+        -:   38:
+    24527:   39:    fp = fopen(file, "rb");
+call    0 returned 100%
+   24527*:   40:    if (!fp) return -1;
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+        -:   41:
+    24527:   42:    fread(&header, sizeof(header), 1, fp);
+call    0 returned 100%
+    24527:   43:    pb->width  = (int)header.biWidth  > 0 ? (int)header.biWidth  : 0;
+    24527:   44:    pb->height = (int)header.biHeight > 0 ? (int)header.biHeight : 0;
+    24527:   45:    pb->stride = ALIGN(pb->width * 3, 4);
+    24527:   46:    pb->pdata  = malloc((size_t)pb->stride * pb->height);
+    24527:   47:    if (pb->pdata) {
+branch  0 taken 100% (fallthrough)
+branch  1 taken 1%
+    24526:   48:        pdata  = (BYTE*)pb->pdata + pb->stride * pb->height;
+139395755:   49:        for (i=0; i<pb->height; i++) {
+branch  0 taken 100%
+branch  1 taken 1% (fallthrough)
+139371229:   50:            pdata -= pb->stride;
+139371229:   51:            fread(pdata, pb->stride, 1, fp);
+call    0 returned 100%
+        -:   52:        }
+        -:   53:    }
+        -:   54:
+    24527:   55:    fclose(fp);
+call    0 returned 100%
+    24527:   56:    return pb->pdata ? 0 : -1;
+branch  0 taken 100% (fallthrough)
+branch  1 taken 1%
+        -:   57:}
+        -:   58:
+function bmp_create called 0 returned 0% blocks executed 0%
+    #####:   59:int bmp_create(BMP *pb, int w, int h)
+        -:   60:{
+    #####:   61:    pb->width  = abs(w);
+    #####:   62:    pb->height = abs(h);
+    #####:   63:    pb->stride = ALIGN(pb->width * 3, 4);
+    #####:   64:    pb->pdata  = malloc((size_t)pb->stride * h);
+    #####:   65:    return pb->pdata ? 0 : -1;
+branch  0 never executed
+branch  1 never executed
+        -:   66:}
+        -:   67:
+function bmp_save called 0 returned 0% blocks executed 0%
+    #####:   68:int bmp_save(BMP *pb, char *file)
+        -:   69:{
+    #####:   70:    BMPFILEHEADER header = {0};
+    #####:   71:    FILE         *fp     = NULL;
+        -:   72:    BYTE         *pdata;
+        -:   73:    int           i;
+        -:   74:
+    #####:   75:    header.bfType     = ('B' << 0) | ('M' << 8);
+    #####:   76:    header.bfSize     = sizeof(header) + pb->stride * pb->height;
+    #####:   77:    header.bfOffBits  = sizeof(header);
+    #####:   78:    header.biSize     = 40;
+    #####:   79:    header.biWidth    = pb->width;
+    #####:   80:    header.biHeight   = pb->height;
+    #####:   81:    header.biPlanes   = 1;
+    #####:   82:    header.biBitCount = 24;
+    #####:   83:    header.biSizeImage= pb->stride * pb->height;
+        -:   84:
+    #####:   85:    fp = fopen(file, "wb");
+call    0 never executed
+    #####:   86:    if (fp) {
+branch  0 never executed
+branch  1 never executed
+    #####:   87:        fwrite(&header, sizeof(header), 1, fp);
+call    0 never executed
+    #####:   88:        pdata = (BYTE*)pb->pdata + pb->stride * pb->height;
+    #####:   89:        for (i=0; i<pb->height; i++) {
+branch  0 never executed
+branch  1 never executed
+    #####:   90:            pdata -= pb->stride;
+    #####:   91:            fwrite(pdata, pb->stride, 1, fp);
+call    0 never executed
+        -:   92:        }
+    #####:   93:        fclose(fp);
+call    0 never executed
+        -:   94:    }
+        -:   95:
+    #####:   96:    return fp ? 0 : -1;
+branch  0 never executed
+branch  1 never executed
+        -:   97:}
+        -:   98:
+function bmp_free called 24527 returned 100% blocks executed 100%
+    24527:   99:void bmp_free(BMP *pb)
+        -:  100:{
+    24527:  101:    if (pb->pdata) {
+branch  0 taken 100% (fallthrough)
+branch  1 taken 1%
+    24526:  102:        free(pb->pdata);
+    24526:  103:        pb->pdata = NULL;
+        -:  104:    }
+    24527:  105:    pb->width  = 0;
+    24527:  106:    pb->height = 0;
+    24527:  107:    pb->stride = 0;
+    24527:  108:}
+        -:  109:
+        -:  110:
+        -:  111:#if TEST_BMP
+        -:  112:int main(void)
+        -:  113:{
+        -:  114:    BMP bmp = {0};
+        -:  115:    bmp_load(&bmp, "test.bmp");
+        -:  116:    bmp_save(&bmp, "save.bmp");
+        -:  117:    bmp_free(&bmp);
+        -:  118:    return 0;
+        -:  119:}
+        -:  120:#endif
+        -:  121:
+        -:  122:
+        -:  123:
+        -:  124:
+        -:  125:
+        -:  126:
+        -:  127:
+        -:  128:
+        -:  129:
+        -:  130:

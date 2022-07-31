@@ -1,0 +1,57 @@
+        -:    0:Source:color.c
+        -:    0:Graph:color.gcno
+        -:    0:Data:color.gcda
+        -:    0:Runs:24527
+        -:    1:/* 包含头文件 */
+        -:    2:#include "color.h"
+        -:    3:
+        -:    4:/*
+        -:    5:    y = ( 0.2990f * r + 0.5870f * g + 0.1140f * b - 128);
+        -:    6:    u = (-0.1678f * r - 0.3313f * g + 0.5000f * b + 0  );
+        -:    7:    v = ( 0.5000f * r - 0.4187f * g - 0.0813f * b + 0  );
+        -:    8:
+        -:    9:    r = (y                + 1.40200f * v);
+        -:   10:    g = (y - 0.34414f * u - 0.71414f * v);
+        -:   11:    b = (y + 1.77200f * u               );
+        -:   12:*/
+        -:   13:// yuv - 32bit signed fixed q11
+        -:   14:// rgb - 8bits unsigned integer
+function yuv_to_rgb called 0 returned 0% blocks executed 0%
+    #####:   15:void yuv_to_rgb(int y, int u, int v, BYTE *r, BYTE *g, BYTE *b)
+        -:   16:{
+        -:   17:    int tr, tg, tb;
+        -:   18:
+    #####:   19:    y += 128 << FIXQ;
+    #####:   20:    tr = (y + (FLOAT2FIX(1.40200f) * v >> FIXQ)) >> FIXQ;
+    #####:   21:    tg = (y - (FLOAT2FIX(0.34414f) * u >> FIXQ) - (FLOAT2FIX(0.71414f) * v >> FIXQ)) >> FIXQ;
+    #####:   22:    tb = (y + (FLOAT2FIX(1.77200f) * u >> FIXQ)) >> FIXQ;
+        -:   23:
+        -:   24:    /* 饱和处理 */
+    #####:   25:    *r = tr < 0 ? 0 : tr < 255 ? tr : 255;
+branch  0 never executed
+branch  1 never executed
+    #####:   26:    *g = tg < 0 ? 0 : tg < 255 ? tg : 255;
+branch  0 never executed
+branch  1 never executed
+    #####:   27:    *b = tb < 0 ? 0 : tb < 255 ? tb : 255;
+branch  0 never executed
+branch  1 never executed
+    #####:   28:}
+        -:   29:
+        -:   30:// rgb - 8bits unsigned integer
+        -:   31:// yuv - 32bit signed fixed q2
+function rgb_to_yuv called 1620780200 returned 100% blocks executed 100%
+1620780200:   32:void rgb_to_yuv(BYTE r, BYTE g, BYTE b, int *y, int *u, int *v)
+        -:   33:{
+1620780200:   34:    *y = FLOAT2FIX( 0.2990f) * r + FLOAT2FIX(0.5870f) * g + FLOAT2FIX(0.1140f) * b - (128 << FIXQ);
+1620780200:   35:    *u = FLOAT2FIX(-0.1678f) * r - FLOAT2FIX(0.3313f) * g + FLOAT2FIX(0.5000f) * b;
+1620780200:   36:    *v = FLOAT2FIX( 0.5000f) * r - FLOAT2FIX(0.4187f) * g - FLOAT2FIX(0.0813f) * b;
+1620780200:   37:    *y >>= FIXQ - 2;
+1620780200:   38:    *u >>= FIXQ - 2;
+1620780200:   39:    *v >>= FIXQ - 2;
+1620780200:   40:}
+        -:   41:
+        -:   42:
+        -:   43:
+        -:   44:
+        -:   45:

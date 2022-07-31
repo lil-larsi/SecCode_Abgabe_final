@@ -1,0 +1,577 @@
+        -:    0:Source:huffman.c
+        -:    0:Graph:huffman.gcno
+        -:    0:Data:huffman.gcda
+        -:    0:Runs:24527
+        -:    1:/* 包含头文件 */
+        -:    2:#include <stdlib.h>
+        -:    3:#include <stdio.h>
+        -:    4:#include <string.h>
+        -:    5:#include "bitstr.h"
+        -:    6:#include "huffman.h"
+        -:    7:
+        -:    8:#define TEST_HUFFMAN       0
+        -:    9:#define ENABLE_DEBUG_DUMP  0
+        -:   10:
+        -:   11:/* 内部函数实现 */
+        -:   12:/* ++ 用于快速排序的比较函数 */
+function cmp_freq_item called 0 returned 0% blocks executed 0%
+    #####:   13:static int cmp_freq_item(const void *a, const void *b)
+        -:   14:{
+    #####:   15:    return ((HUFCODEITEM*)a)->freq - ((HUFCODEITEM*)b)->freq;
+        -:   16:}
+        -:   17:
+function cmp_depth_item called 0 returned 0% blocks executed 0%
+    #####:   18:static int cmp_depth_item(const void *a, const void *b)
+        -:   19:{
+    #####:   20:    return ((HUFCODEITEM*)a)->depth - ((HUFCODEITEM*)b)->depth;
+        -:   21:}
+        -:   22:/* -- 用于快速排序的比较函数 */
+        -:   23:
+        -:   24:#if ENABLE_DEBUG_DUMP
+        -:   25:static void int_to_bin_str(int v, char *str, int n) {
+        -:   26:    int i;
+        -:   27:    for (i=n-1; i>=0; i--) {
+        -:   28:        if (v & (1 << i)) {
+        -:   29:            *str++ = '1';
+        -:   30:        } else {
+        -:   31:            *str++ = '0';
+        -:   32:        }
+        -:   33:    }
+        -:   34:    *str = '\0';
+        -:   35:}
+        -:   36:
+        -:   37:static void dump_huffman_codelist(char *title, HUFCODEITEM *list, int n, int head)
+        -:   38:{
+        -:   39:    char str[33];
+        -:   40:    int  i;
+        -:   41:    printf("\n+----%s----+\n", title);
+        -:   42:    for (i=0; i<n; i++) {
+        -:   43:        int_to_bin_str(list[i].code, str, list[i].depth);
+        -:   44:        printf("%c %c, freq:%3d, group:%3d, depth:%d, code:%s\n",
+        -:   45:            head == i ? '*' : ' ',
+        -:   46:            list[i].symbol, list[i].freq, list[i].group, list[i].depth, str);
+        -:   47:    }
+        -:   48:}
+        -:   49:#endif
+        -:   50:
+        -:   51:/* 函数实现 */
+        -:   52:/* 统计符号串中各个符号出现的频率 */
+function huffman_stat_freq called 0 returned 0% blocks executed 0%
+    #####:   53:void huffman_stat_freq(HUFCODEITEM codelist[256], void *stream)
+        -:   54:{
+        -:   55:    int  data;
+        -:   56:    int  i;
+        -:   57:
+        -:   58:    /* 初始化频率表 */
+    #####:   59:    for (i=0; i<256; i++)
+branch  0 never executed
+branch  1 never executed
+        -:   60:    {
+    #####:   61:        codelist[i].symbol = i;
+    #####:   62:        codelist[i].freq   = 0;
+    #####:   63:        codelist[i].group  = i;
+    #####:   64:        codelist[i].depth  = 1;
+    #####:   65:        codelist[i].code   = 0;
+        -:   66:    }
+        -:   67:
+        -:   68:    // 最大的频率，超过这个值，则做饱和处理
+        -:   69:    #define MAX_STAT_FREQ_NUM  (1ul << (MAX_HUFFMAN_CODE_LEN - 1))
+        -:   70:
+        -:   71:    /* 统计频率 */
+        -:   72:    while (1) {
+    #####:   73:        data = bitstr_getc(stream);
+call    0 never executed
+    #####:   74:        if (data == EOF) break;
+branch  0 never executed
+branch  1 never executed
+    #####:   75:        if (codelist[(BYTE)data].freq < MAX_STAT_FREQ_NUM) {
+branch  0 never executed
+branch  1 never executed
+    #####:   76:            codelist[(BYTE)data].freq++;
+        -:   77:        }
+        -:   78:    }
+        -:   79:
+        -:   80:#if ENABLE_DEBUG_DUMP
+        -:   81:    printf("\nstat freq:\n");
+        -:   82:    printf("------------\n");
+        -:   83:    for (i=0; i<256; i++) {
+        -:   84:        if (codelist[i].freq) {
+        -:   85:            printf("%c:%d ", codelist[i].symbol, codelist[i].freq);
+        -:   86:        }
+        -:   87:    }
+        -:   88:    printf("\n");
+        -:   89:#endif
+    #####:   90:}
+        -:   91:
+function huffman_encode_init_from_codelist called 0 returned 0% blocks executed 0%
+    #####:   92:static void huffman_encode_init_from_codelist(HUFCODEC *phc)
+        -:   93:{
+    #####:   94:    HUFCODEITEM *codelist = phc->codelist;
+        -:   95:    HUFCODEITEM  copylist[256];
+        -:   96:    HUFCODEITEM *templist;
+    #####:   97:    BYTE        *huftab   = phc->huftab;
+        -:   98:    int head;
+        -:   99:    int group;
+        -:  100:    int code;
+        -:  101:    int n, i, j, k;
+        -:  102:
+        -:  103:    /* make a copylist which is copy of codelist */
+    #####:  104:    memcpy(copylist, codelist, sizeof(HUFCODEITEM) * 256);
+        -:  105:
+        -:  106:    /* 对 copylist 按 freq 进行快速排序 */
+    #####:  107:    qsort(copylist, 256, sizeof(HUFCODEITEM), cmp_freq_item);
+call    0 never executed
+        -:  108:
+        -:  109:    /* 查找出第一个非零频率的符号
+        -:  110:       并计算出非零频率的符号个数 */
+    #####:  111:    for (i=0; i<256 && !copylist[i].freq; i++);
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+    #####:  112:    templist = &copylist[i];
+    #####:  113:    n = 256 - i;
+        -:  114:
+        -:  115:    /* 初始化头指针和当前分组 */
+    #####:  116:    head  = 0;
+    #####:  117:    group = 256;
+        -:  118:
+    #####:  119:    while (head < n - 2) /* 在一个 while 循环中计算码长 */
+branch  0 never executed
+branch  1 never executed
+        -:  120:    {
+        -:  121:#if ENABLE_DEBUG_DUMP
+        -:  122:        // dump sorted code list
+        -:  123:        dump_huffman_codelist(" sorted -", templist, n, head);
+        -:  124:#endif
+        -:  125:
+        -:  126:        /* 根据 templist 中 head 开始的两个元素的分组情况
+        -:  127:           来更新 templist 中 head 之前相应元素的码长和分组 */
+    #####:  128:        for (i=0; i<head; i++)
+branch  0 never executed
+branch  1 never executed
+        -:  129:        {
+    #####:  130:            if (  templist[i].group == templist[head + 0].group
+branch  0 never executed
+branch  1 never executed
+    #####:  131:               || templist[i].group == templist[head + 1].group)
+branch  0 never executed
+branch  1 never executed
+        -:  132:            {
+    #####:  133:                templist[i].depth++;       /* 码长值加 1 */
+    #####:  134:                templist[i].group = group; /* 进行新的分组 */
+        -:  135:            }
+        -:  136:        }
+        -:  137:
+        -:  138:#if ENABLE_DEBUG_DUMP
+        -:  139:        // dump updated code list
+        -:  140:        dump_huffman_codelist(" updated ", templist, n, head);
+        -:  141:#endif
+        -:  142:
+        -:  143:        /* 合并频率最小的两个项 */
+    #####:  144:        templist[head + 0].depth++;
+    #####:  145:        templist[head + 1].depth++;
+    #####:  146:        templist[head + 0].group = group;
+    #####:  147:        templist[head + 1].group = group;
+    #####:  148:        templist[head + 1].freq += templist[head + 0].freq;
+        -:  149:
+    #####:  150:        head ++; /* 表头指针 */
+    #####:  151:        group++; /* 分组编号 */
+        -:  152:
+        -:  153:#if ENABLE_DEBUG_DUMP
+        -:  154:        // dump merged code list
+        -:  155:        dump_huffman_codelist(" merged -", templist, n, head);
+        -:  156:#endif
+        -:  157:
+        -:  158:        /* 对 templist 重新排序 */
+    #####:  159:        for (i=head; i<n-1; i++) {
+branch  0 never executed
+branch  1 never executed
+    #####:  160:            if (templist[i].freq > templist[i+1].freq) {
+branch  0 never executed
+branch  1 never executed
+        -:  161:                HUFCODEITEM tempitem;
+    #####:  162:                memcpy(&tempitem,        &(templist[i+0]), sizeof(HUFCODEITEM));
+    #####:  163:                memcpy(&(templist[i+0]), &(templist[i+1]), sizeof(HUFCODEITEM));
+    #####:  164:                memcpy(&(templist[i+1]), &tempitem,        sizeof(HUFCODEITEM));
+    #####:  165:            } else break;
+        -:  166:        }
+        -:  167:    }
+        -:  168:
+        -:  169:    /* 对 templist 按 depth 进行快速排序 */
+    #####:  170:    qsort(templist, n, sizeof(HUFCODEITEM), cmp_depth_item);
+call    0 never executed
+        -:  171:
+        -:  172:#if ENABLE_DEBUG_DUMP
+        -:  173:    // dump done code list
+        -:  174:    dump_huffman_codelist(" done ---", templist, n, -1);
+        -:  175:#endif
+        -:  176:
+        -:  177:    // 生成 jpeg 格式的哈夫曼表
+    #####:  178:    memset(huftab, 0, MAX_HUFFMAN_CODE_LEN);
+    #####:  179:    for (i=0; i<n; i++) {
+branch  0 never executed
+branch  1 never executed
+    #####:  180:        huftab[templist[i].depth - 1]++;
+    #####:  181:        huftab[i + MAX_HUFFMAN_CODE_LEN] = templist[i].symbol;
+        -:  182:    }
+        -:  183:
+        -:  184:#if ENABLE_DEBUG_DUMP
+        -:  185:    printf("\nhuftab:\n");
+        -:  186:    for (i=0; i<MAX_HUFFMAN_CODE_LEN; i++) {
+        -:  187:        printf("%d ", huftab[i]);
+        -:  188:    }
+        -:  189:    printf("\n");
+        -:  190:    for (i=MAX_HUFFMAN_CODE_LEN; i<MAX_HUFFMAN_CODE_LEN+256; i++) {
+        -:  191:        printf("%c ", huftab[i]);
+        -:  192:    }
+        -:  193:    printf("\n");
+        -:  194:#endif
+        -:  195:
+    #####:  196:    k    = 0;
+    #####:  197:    code = 0;
+    #####:  198:    for (j=templist[0].depth-1; j<MAX_HUFFMAN_CODE_LEN; j++) {
+branch  0 never executed
+branch  1 never executed
+    #####:  199:        for (i=0; i<huftab[j]; i++) {
+branch  0 never executed
+branch  1 never executed
+    #####:  200:            templist[k++].code = code++;
+        -:  201:        }
+    #####:  202:        code <<= 1;
+        -:  203:    }
+        -:  204:
+        -:  205:#if ENABLE_DEBUG_DUMP
+        -:  206:    for (i=0; i<n; i++) {
+        -:  207:        templist[i].freq  = codelist[templist[i].symbol].freq ;
+        -:  208:        templist[i].group = codelist[templist[i].symbol].group;
+        -:  209:    }
+        -:  210:    // dump done code list
+        -:  211:    dump_huffman_codelist(" code ---", templist, n, -1);
+        -:  212:#endif
+        -:  213:
+    #####:  214:    for (i=0; i<n; i++) {
+branch  0 never executed
+branch  1 never executed
+    #####:  215:        codelist[templist[i].symbol].depth = templist[i].depth;
+    #####:  216:        codelist[templist[i].symbol].code  = templist[i].code ;
+        -:  217:    }
+    #####:  218:}
+        -:  219:
+function huffman_encode_init_from_huftab called 98108 returned 100% blocks executed 100%
+    98108:  220:static void huffman_encode_init_from_huftab(HUFCODEC *phc)
+        -:  221:{
+        -:  222:    int  i, j, k;
+        -:  223:    int  symbol;
+        -:  224:    int  code;
+        -:  225:    BYTE hufsize[256];
+        -:  226:    int  hufcode[256];
+        -:  227:    int  tabsize;
+        -:  228:
+    98108:  229:    k    = 0;
+    98108:  230:    code = 0x00;
+  1667836:  231:    for (i=0; i<MAX_HUFFMAN_CODE_LEN; i++) {
+branch  0 taken 94%
+branch  1 taken 6% (fallthrough)
+ 10105124:  232:        for (j=0; j<phc->huftab[i]; j++) {
+branch  0 taken 84%
+branch  1 taken 16% (fallthrough)
+  8535396:  233:            hufsize[k] = i + 1;
+  8535396:  234:            hufcode[k] = code;
+  8535396:  235:            code++; k++;
+        -:  236:        }
+  1569728:  237:        code <<= 1;
+        -:  238:    }
+    98108:  239:    tabsize = k;
+        -:  240:
+  8633504:  241:    for (i=0; i<tabsize; i++) {
+branch  0 taken 99%
+branch  1 taken 1% (fallthrough)
+  8535396:  242:        symbol = phc->huftab[MAX_HUFFMAN_CODE_LEN + i];
+  8535396:  243:        phc->codelist[symbol].depth = hufsize[i];
+  8535396:  244:        phc->codelist[symbol].code  = hufcode[i];
+        -:  245:    }
+    98108:  246:}
+        -:  247:
+function huffman_encode_init called 98108 returned 100% blocks executed 75%
+    98108:  248:void huffman_encode_init(HUFCODEC *phc, int flag)
+        -:  249:{
+    98108:  250:    if (flag) {
+branch  0 taken 100% (fallthrough)
+branch  1 taken 0%
+    98108:  251:        huffman_encode_init_from_huftab  (phc);
+call    0 returned 100%
+        -:  252:    } else {
+    #####:  253:        huffman_encode_init_from_codelist(phc);
+call    0 never executed
+        -:  254:    }
+    98108:  255:}
+        -:  256:
+function huffman_encode_done called 98108 returned 100% blocks executed 100%
+    98108:  257:void huffman_encode_done(HUFCODEC *phc)
+        -:  258:{
+        -:  259:    /* flush bitstr */
+    98108:  260:    bitstr_flush(phc->output, 1);
+call    0 returned 100%
+    98108:  261:}
+        -:  262:
+function huffman_encode_run called 0 returned 0% blocks executed 0%
+    #####:  263:BOOL huffman_encode_run(HUFCODEC *phc)
+        -:  264:{
+        -:  265:    /* 检查输入输出数据流的有效性 */
+    #####:  266:    if (!phc->input || !phc->output) return FALSE;
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+        -:  267:
+        -:  268:#if ENABLE_DEBUG_DUMP
+        -:  269:    printf("\noutput encode bit stream:\n");
+        -:  270:#endif
+        -:  271:
+        -:  272:    /* 对输入码流进行编码并输出 */
+    #####:  273:    while (1) {
+        -:  274:        int code, len;
+    #####:  275:        int data = bitstr_getc(phc->input);
+call    0 never executed
+    #####:  276:        if (data == EOF) break;
+branch  0 never executed
+branch  1 never executed
+    #####:  277:        code = phc->codelist[data].code ;
+    #####:  278:        len  = phc->codelist[data].depth;
+    #####:  279:        if (EOF == bitstr_put_bits(phc->input, code, len)) {
+call    0 never executed
+branch  1 never executed
+branch  2 never executed
+    #####:  280:            return FALSE;
+        -:  281:        }
+        -:  282:    }
+        -:  283:
+        -:  284:    /* 返回成功 */
+    #####:  285:    return TRUE;
+        -:  286:}
+        -:  287:
+function huffman_encode_step called 129454345 returned 100% blocks executed 71%
+129454345:  288:BOOL huffman_encode_step(HUFCODEC *phc, int data)
+        -:  289:{
+        -:  290:    unsigned code;
+        -:  291:    int      len ;
+        -:  292:
+        -:  293:    /* 检查输入输出数据流的有效性 */
+129454345*:  294:    if (!phc->output) return FALSE;
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+        -:  295:
+129454345:  296:    code = phc->codelist[data].code ;
+129454345:  297:    len  = phc->codelist[data].depth;
+129454345:  298:    if (EOF == bitstr_put_bits(phc->output, code, len)) {
+call    0 returned 100%
+branch  1 taken 0% (fallthrough)
+branch  2 taken 100%
+    #####:  299:        return FALSE;
+        -:  300:    }
+        -:  301:
+129454345:  302:    return TRUE;
+        -:  303:}
+        -:  304:
+function huffman_decode_init called 0 returned 0% blocks executed 0%
+    #####:  305:void huffman_decode_init(HUFCODEC *phc)
+        -:  306:{
+        -:  307:    int i;
+        -:  308:
+        -:  309:    /* 根据哈夫曼表构造 first 表和 index 表
+        -:  310:       first[i] 表示长度为 i+1 的第一个码字的值
+        -:  311:       index[i] 表示长度为 i+1 的第一个码字的索引 */
+    #####:  312:    phc->first[0] = 0 ;
+    #####:  313:    phc->index[0] = MAX_HUFFMAN_CODE_LEN;
+    #####:  314:    for (i=1; i<MAX_HUFFMAN_CODE_LEN; i++)
+branch  0 never executed
+branch  1 never executed
+        -:  315:    {
+    #####:  316:        phc->first[i] = (phc->first[i-1] + phc->huftab[i-1]) << 1;
+    #####:  317:        phc->index[i] =  phc->index[i-1] + phc->huftab[i-1];
+        -:  318:    }
+        -:  319:
+        -:  320:#if ENABLE_DEBUG_DUMP
+        -:  321:    printf("\n\nfirst table:\n");
+        -:  322:    for (i=0; i<MAX_HUFFMAN_CODE_LEN; i++) {
+        -:  323:        printf("%d ", phc->first[i]);
+        -:  324:    }
+        -:  325:
+        -:  326:    printf("\n\nindex table:\n");
+        -:  327:    for (i=0; i<MAX_HUFFMAN_CODE_LEN; i++) {
+        -:  328:        printf("%d ", phc->index[i]);
+        -:  329:    }
+        -:  330:    printf("\n\n");
+        -:  331:#endif
+    #####:  332:}
+        -:  333:
+function huffman_decode_done called 0 returned 0% blocks executed 0%
+    #####:  334:void huffman_decode_done(HUFCODEC *phc)
+        -:  335:{
+        -:  336:    // do nothing
+    #####:  337:}
+        -:  338:
+function huffman_decode_run called 0 returned 0% blocks executed 0%
+    #####:  339:BOOL huffman_decode_run(HUFCODEC *phc)
+        -:  340:{
+        -:  341:    int symbol;
+        -:  342:
+        -:  343:    /* 检查输入输出数据流的有效性 */
+    #####:  344:    if (!phc->input || !phc->output) return FALSE;
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+        -:  345:
+        -:  346:    /* decode until end of stream */
+        -:  347:    while (1) {
+    #####:  348:        symbol = huffman_decode_step(phc);
+call    0 never executed
+    #####:  349:        if (symbol == EOF) {
+branch  0 never executed
+branch  1 never executed
+        -:  350://          printf("get the EOF from huffman decoder !\n");
+    #####:  351:            break;
+        -:  352:        }
+    #####:  353:        if (EOF == bitstr_putc(symbol, phc->output)) {
+call    0 never executed
+branch  1 never executed
+branch  2 never executed
+    #####:  354:            printf("failed to write data to bit stream !\n");
+call    0 never executed
+    #####:  355:            return FALSE;
+        -:  356:        }
+        -:  357:    }
+        -:  358:
+        -:  359:    /* 返回成功 */
+    #####:  360:    return TRUE;
+        -:  361:}
+        -:  362:
+function huffman_decode_step called 0 returned 0% blocks executed 0%
+    #####:  363:int huffman_decode_step(HUFCODEC *phc)
+        -:  364:{
+        -:  365:    int bit;
+    #####:  366:    int code = 0;
+    #####:  367:    int len  = 0;
+    #####:  368:    int idx  = 0;
+        -:  369:
+        -:  370:    /* 检查输入输出数据流的有效性 */
+    #####:  371:    if (!phc || !phc->input) return EOF;
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+        -:  372:
+        -:  373:    /* 从输入流读取码字 */
+        -:  374:    while (1) {
+    #####:  375:        bit = bitstr_getb(phc->input);
+call    0 never executed
+    #####:  376:        if ( bit == EOF) return EOF;
+branch  0 never executed
+branch  1 never executed
+        -:  377://      printf("%d, first = %d, len = %d\n", bit ? 1 : 0, phc->first[len], len);
+    #####:  378:        code <<= 1; code |= bit;
+    #####:  379:        if (code - phc->first[len] < phc->huftab[len]) break;
+branch  0 never executed
+branch  1 never executed
+    #####:  380:        if (++len == MAX_HUFFMAN_CODE_LEN) return EOF;
+branch  0 never executed
+branch  1 never executed
+        -:  381:    }
+        -:  382:
+    #####:  383:    idx = phc->index[len] + (code - phc->first[len]);
+        -:  384://  printf("get code:%c len:%d, idx:%d\n\n", phc->huftab[idx], len, idx);
+    #####:  385:    return idx < MAX_HUFFMAN_CODE_LEN + 256 ? phc->huftab[idx] : EOF;
+branch  0 never executed
+branch  1 never executed
+        -:  386:}
+        -:  387:
+        -:  388:const BYTE STD_HUFTAB_LUMIN_AC[] =
+        -:  389:{
+        -:  390:    0x00, 0x02, 0x01, 0x03, 0x03, 0x02, 0x04, 0x03, 0x05, 0x05, 0x04, 0x04, 0x00, 0x00, 0x01, 0x7d,
+        -:  391:    0x01, 0x02, 0x03, 0x00, 0x04, 0x11, 0x05, 0x12, 0x21, 0x31, 0x41, 0x06, 0x13, 0x51, 0x61, 0x07,
+        -:  392:    0x22, 0x71, 0x14, 0x32, 0x81, 0x91, 0xa1, 0x08, 0x23, 0x42, 0xb1, 0xc1, 0x15, 0x52, 0xd1, 0xf0,
+        -:  393:    0x24, 0x33, 0x62, 0x72, 0x82, 0x09, 0x0a, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x25, 0x26, 0x27, 0x28,
+        -:  394:    0x29, 0x2a, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49,
+        -:  395:    0x4a, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5a, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69,
+        -:  396:    0x6a, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78, 0x79, 0x7a, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88, 0x89,
+        -:  397:    0x8a, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98, 0x99, 0x9a, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7,
+        -:  398:    0xa8, 0xa9, 0xaa, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7, 0xb8, 0xb9, 0xba, 0xc2, 0xc3, 0xc4, 0xc5,
+        -:  399:    0xc6, 0xc7, 0xc8, 0xc9, 0xca, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7, 0xd8, 0xd9, 0xda, 0xe1, 0xe2,
+        -:  400:    0xe3, 0xe4, 0xe5, 0xe6, 0xe7, 0xe8, 0xe9, 0xea, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8,
+        -:  401:    0xf9, 0xfa,
+        -:  402:};
+        -:  403:
+        -:  404:const BYTE STD_HUFTAB_LUMIN_DC[] =
+        -:  405:{
+        -:  406:    0x00, 0x01, 0x05, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        -:  407:    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
+        -:  408:};
+        -:  409:
+        -:  410:const BYTE STD_HUFTAB_CHROM_AC[] =
+        -:  411:{
+        -:  412:    0x00, 0x02, 0x01, 0x02, 0x04, 0x04, 0x03, 0x04, 0x07, 0x05, 0x04, 0x04, 0x00, 0x01, 0x02, 0x77,
+        -:  413:    0x00, 0x01, 0x02, 0x03, 0x11, 0x04, 0x05, 0x21, 0x31, 0x06, 0x12, 0x41, 0x51, 0x07, 0x61, 0x71,
+        -:  414:    0x13, 0x22, 0x32, 0x81, 0x08, 0x14, 0x42, 0x91, 0xa1, 0xb1, 0xc1, 0x09, 0x23, 0x33, 0x52, 0xf0,
+        -:  415:    0x15, 0x62, 0x72, 0xd1, 0x0a, 0x16, 0x24, 0x34, 0xe1, 0x25, 0xf1, 0x17, 0x18, 0x19, 0x1a, 0x26,
+        -:  416:    0x27, 0x28, 0x29, 0x2a, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
+        -:  417:    0x49, 0x4a, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5a, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68,
+        -:  418:    0x69, 0x6a, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78, 0x79, 0x7a, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87,
+        -:  419:    0x88, 0x89, 0x8a, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98, 0x99, 0x9a, 0xa2, 0xa3, 0xa4, 0xa5,
+        -:  420:    0xa6, 0xa7, 0xa8, 0xa9, 0xaa, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7, 0xb8, 0xb9, 0xba, 0xc2, 0xc3,
+        -:  421:    0xc4, 0xc5, 0xc6, 0xc7, 0xc8, 0xc9, 0xca, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7, 0xd8, 0xd9, 0xda,
+        -:  422:    0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7, 0xe8, 0xe9, 0xea, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8,
+        -:  423:    0xf9, 0xfa
+        -:  424:};
+        -:  425:
+        -:  426:const BYTE STD_HUFTAB_CHROM_DC[] =
+        -:  427:{
+        -:  428:    0x00, 0x03, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
+        -:  429:    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
+        -:  430:};
+        -:  431:
+        -:  432:#if TEST_HUFFMAN
+        -:  433:int main(void)
+        -:  434:{
+        -:  435:    HUFCODEC hufencoder;
+        -:  436:    HUFCODEC hufdecoder;
+        -:  437:
+        -:  438:    //++ encode test
+        -:  439:    hufencoder.input  = bitstr_open(BITSTR_FILE, "test.txt", "rb");
+        -:  440:    hufencoder.output = bitstr_open(BITSTR_FILE, "test.huf", "wb");
+        -:  441:
+        -:  442:    huffman_stat_freq(hufencoder.codelist, hufencoder.input);
+        -:  443:    bitstr_seek(hufencoder.input, SEEK_SET, 0);
+        -:  444:
+        -:  445:    huffman_encode_init(&hufencoder, 0);
+        -:  446:    huffman_encode_run (&hufencoder);
+        -:  447:    huffman_encode_done(&hufencoder);
+        -:  448:
+        -:  449:    bitstr_close(hufencoder.input );
+        -:  450:    bitstr_close(hufencoder.output);
+        -:  451:    //-- encode test
+        -:  452:
+        -:  453:    //++ decode test
+        -:  454:    memcpy(hufdecoder.huftab, hufencoder.huftab, sizeof(hufdecoder.huftab));
+        -:  455:
+        -:  456:    hufdecoder.input  = bitstr_open(BITSTR_FILE, "test.huf"  , "rb");
+        -:  457:    hufdecoder.output = bitstr_open(BITSTR_FILE, "decode.txt", "wb");
+        -:  458:
+        -:  459:    huffman_decode_init(&hufdecoder);
+        -:  460:    huffman_decode_run (&hufdecoder);
+        -:  461:    huffman_decode_done(&hufdecoder);
+        -:  462:
+        -:  463:    bitstr_close(hufdecoder.input );
+        -:  464:    bitstr_close(hufdecoder.output);
+        -:  465:    //-- decode test
+        -:  466:
+        -:  467:    return 0;
+        -:  468:}
+        -:  469:#endif
+        -:  470:
+        -:  471:
+        -:  472:
+        -:  473:
+        -:  474:
+        -:  475:

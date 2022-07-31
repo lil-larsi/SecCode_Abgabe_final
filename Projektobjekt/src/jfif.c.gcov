@@ -1,0 +1,1272 @@
+        -:    0:Source:jfif.c
+        -:    0:Graph:jfif.gcno
+        -:    0:Data:jfif.gcda
+        -:    0:Runs:24527
+        -:    1:/* 包含头文件 */
+        -:    2:#include <stdlib.h>
+        -:    3:#include <stdio.h>
+        -:    4:#include <string.h>
+        -:    5:#include "stdefine.h"
+        -:    6:#include "bitstr.h"
+        -:    7:#include "huffman.h"
+        -:    8:#include "quant.h"
+        -:    9:#include "zigzag.h"
+        -:   10:#include "dct.h"
+        -:   11:#include "bmp.h"
+        -:   12:#include "color.h"
+        -:   13:#include "jfif.h"
+        -:   14:
+        -:   15:// 预编译开关
+        -:   16:#define DEBUG_JFIF  0
+        -:   17:
+        -:   18:// 内部类型定义
+        -:   19:typedef struct {
+        -:   20:    // width & height
+        -:   21:    int       width;
+        -:   22:    int       height;
+        -:   23:
+        -:   24:    // quantization table
+        -:   25:    int      *pqtab[16];
+        -:   26:
+        -:   27:    // huffman codec ac
+        -:   28:    HUFCODEC *phcac[16];
+        -:   29:
+        -:   30:    // huffman codec dc
+        -:   31:    HUFCODEC *phcdc[16];
+        -:   32:
+        -:   33:    // components
+        -:   34:    int comp_num;
+        -:   35:    struct {
+        -:   36:        int id;
+        -:   37:        int samp_factor_v;
+        -:   38:        int samp_factor_h;
+        -:   39:        int qtab_idx;
+        -:   40:        int htab_idx_ac;
+        -:   41:        int htab_idx_dc;
+        -:   42:    } comp_info[4];
+        -:   43:
+        -:   44:    int   datalen;
+        -:   45:    BYTE *databuf;
+        -:   46:} JFIF;
+        -:   47:
+        -:   48:/* 内部函数实现 */
+        -:   49:#if DEBUG_JFIF
+        -:   50:static void jfif_dump(JFIF *jfif)
+        -:   51:{
+        -:   52:    int i, j;
+        -:   53:
+        -:   54:    printf("++ jfif dump ++\n");
+        -:   55:    printf("width : %d\n", jfif->width );
+        -:   56:    printf("height: %d\n", jfif->height);
+        -:   57:    printf("\n");
+        -:   58:
+        -:   59:    for (i=0; i<16; i++) {
+        -:   60:        if (!jfif->pqtab[i]) continue;
+        -:   61:        printf("qtab%d\n", i);
+        -:   62:        for (j=0; j<64; j++) {
+        -:   63:            printf("%3d,%c", jfif->pqtab[i][j], j%8 == 7 ? '\n' : ' ');
+        -:   64:        }
+        -:   65:        printf("\n");
+        -:   66:    }
+        -:   67:
+        -:   68:    for (i=0; i<16; i++) {
+        -:   69:        int size = 16;
+        -:   70:        if (!jfif->phcac[i]) continue;
+        -:   71:        printf("htabac%d\n", i);
+        -:   72:        for (j=0; j<16; j++) {
+        -:   73:            size += jfif->phcac[i]->huftab[j];
+        -:   74:        }
+        -:   75:        for (j=0; j<size; j++) {
+        -:   76:            printf("%3d,%c", jfif->phcac[i]->huftab[j], j%16 == 15 ? '\n' : ' ');
+        -:   77:        }
+        -:   78:        printf("\n\n");
+        -:   79:    }
+        -:   80:
+        -:   81:    for (i=0; i<16; i++) {
+        -:   82:        int size = 16;
+        -:   83:        if (!jfif->phcdc[i]) continue;
+        -:   84:        printf("htabdc%d\n", i);
+        -:   85:        for (j=0; j<16; j++) {
+        -:   86:            size += jfif->phcdc[i]->huftab[j];
+        -:   87:        }
+        -:   88:        for (j=0; j<size; j++) {
+        -:   89:            printf("%3d,%c", jfif->phcdc[i]->huftab[j], j%16 == 15 ? '\n' : ' ');
+        -:   90:        }
+        -:   91:        printf("\n\n");
+        -:   92:    }
+        -:   93:
+        -:   94:    printf("comp_num : %d\n", jfif->comp_num);
+        -:   95:    for (i=0; i<jfif->comp_num; i++) {
+        -:   96:        printf("id:%d samp_factor_v:%d samp_factor_h:%d qtab_idx:%d htab_idx_ac:%d htab_idx_dc:%d\n",
+        -:   97:            jfif->comp_info[i].id,
+        -:   98:            jfif->comp_info[i].samp_factor_v,
+        -:   99:            jfif->comp_info[i].samp_factor_h,
+        -:  100:            jfif->comp_info[i].qtab_idx,
+        -:  101:            jfif->comp_info[i].htab_idx_ac,
+        -:  102:            jfif->comp_info[i].htab_idx_dc);
+        -:  103:    }
+        -:  104:    printf("\n");
+        -:  105:
+        -:  106:    printf("datalen : %d\n", jfif->datalen);
+        -:  107:    printf("-- jfif dump --\n");
+        -:  108:}
+        -:  109:
+        -:  110:static void dump_du(int *du)
+        -:  111:{
+        -:  112:    int i;
+        -:  113:    for (i=0; i<64; i++) {
+        -:  114:        printf("%3d%c", du[i], i % 8 == 7 ? '\n' : ' ');
+        -:  115:    }
+        -:  116:    printf("\n");
+        -:  117:}
+        -:  118:#endif
+        -:  119:
+function category_encode called 202952785 returned 100% blocks executed 100%
+202952785:  120:static void category_encode(int *code, int *size)
+        -:  121:{
+202952785:  122:    unsigned absc = abs(*code);
+202952785:  123:    unsigned mask = (1 << 15);
+202952785:  124:    int i    = 15;
+202952785:  125:    if (absc == 0) { *size = 0; return; }
+branch  0 taken 71% (fallthrough)
+branch  1 taken 29%
+839354512:  126:    while (i && !(absc & mask)) { mask >>= 1; i--; }
+branch  0 taken 98% (fallthrough)
+branch  1 taken 2%
+branch  2 taken 95%
+branch  3 taken 5% (fallthrough)
+ 58888690:  127:    *size = i + 1;
+ 58888690:  128:    if (*code < 0) *code = (1 << *size) - absc - 1;
+branch  0 taken 51% (fallthrough)
+branch  1 taken 49%
+        -:  129:}
+        -:  130:
+function category_decode called 0 returned 0% blocks executed 0%
+    #####:  131:static int category_decode(int code, int  size)
+        -:  132:{
+    #####:  133:    return code >= (1 << (size - 1)) ? code : code - (1 << size) + 1;
+branch  0 never executed
+branch  1 never executed
+        -:  134:}
+        -:  135:
+        -:  136:/* 函数实现 */
+function jfif_load called 0 returned 0% blocks executed 0%
+    #####:  137:void* jfif_load(char *file)
+        -:  138:{
+    #####:  139:    JFIF *jfif   = NULL;
+    #####:  140:    FILE *fp     = NULL;
+    #####:  141:    int   header = 0;
+    #####:  142:    int   type   = 0;
+    #####:  143:    WORD  size   = 0;
+    #####:  144:    BYTE *buf    = NULL;
+    #####:  145:    BYTE *end    = NULL;
+        -:  146:    BYTE *dqt, *dht;
+    #####:  147:    int   ret    =-1;
+    #####:  148:    long  offset = 0;
+        -:  149:    int   i;
+        -:  150:
+    #####:  151:    jfif = calloc(1, sizeof(JFIF));
+    #####:  152:    buf  = calloc(1, 0x10000);
+    #####:  153:    end  = buf + 0x10000;
+    #####:  154:    if (!jfif || !buf) goto done;
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+        -:  155:
+    #####:  156:    fp = fopen(file, "rb");
+call    0 never executed
+    #####:  157:    if (!fp) goto done;
+branch  0 never executed
+branch  1 never executed
+        -:  158:
+    #####:  159:    while (1) {
+    #####:  160:        do { header = fgetc(fp); } while (header != EOF && header != 0xff); // get header
+call    0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+branch  4 never executed
+    #####:  161:        do { type   = fgetc(fp); } while (type   != EOF && type   == 0xff); // get type
+call    0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+branch  4 never executed
+    #####:  162:        if (header == EOF || type == EOF) {
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+    #####:  163:            printf("file eof !\n");
+call    0 never executed
+    #####:  164:            break;
+        -:  165:        }
+        -:  166:
+    #####:  167:        if ((type == 0xd8) || (type == 0xd9) || (type == 0x01) || (type >= 0xd0 && type <= 0xd7)) {
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+branch  4 never executed
+branch  5 never executed
+branch  6 never executed
+branch  7 never executed
+branch  8 never executed
+branch  9 never executed
+    #####:  168:            size = 0;
+        -:  169:        } else {
+    #####:  170:            size  = fgetc(fp) << 8;
+call    0 never executed
+    #####:  171:            size |= fgetc(fp) << 0;
+call    0 never executed
+    #####:  172:            size -= 2;
+        -:  173:        }
+        -:  174:
+    #####:  175:        size = fread(buf, 1, size, fp);
+call    0 never executed
+    #####:  176:        switch (type) {
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+branch  4 never executed
+    #####:  177:        case 0xc0: // SOF0
+    #####:  178:            jfif->width    = (buf[3] << 8) | (buf[4] << 0);
+    #####:  179:            jfif->height   = (buf[1] << 8) | (buf[2] << 0);
+    #####:  180:            jfif->comp_num =  buf[5] < 4 ? buf[5] : 4;
+    #####:  181:            for (i=0; i<jfif->comp_num; i++) {
+branch  0 never executed
+branch  1 never executed
+    #####:  182:                jfif->comp_info[i].id = buf[6 + i * 3];
+    #####:  183:                jfif->comp_info[i].samp_factor_v = (buf[7 + i * 3] >> 0) & 0x0f;
+    #####:  184:                jfif->comp_info[i].samp_factor_h = (buf[7 + i * 3] >> 4) & 0x0f;
+    #####:  185:                jfif->comp_info[i].qtab_idx      =  buf[8 + i * 3] & 0x0f;
+        -:  186:            }
+    #####:  187:            break;
+        -:  188:
+    #####:  189:        case 0xda: // SOS
+    #####:  190:            jfif->comp_num = buf[0] < 4 ? buf[0] : 4;
+    #####:  191:            for (i=0; i<jfif->comp_num; i++) {
+branch  0 never executed
+branch  1 never executed
+    #####:  192:                jfif->comp_info[i].id = buf[1 + i * 2];
+    #####:  193:                jfif->comp_info[i].htab_idx_ac = (buf[2 + i * 2] >> 0) & 0x0f;
+    #####:  194:                jfif->comp_info[i].htab_idx_dc = (buf[2 + i * 2] >> 4) & 0x0f;
+        -:  195:            }
+    #####:  196:            offset = ftell(fp);
+call    0 never executed
+    #####:  197:            ret    = 0;
+    #####:  198:            goto read_data;
+        -:  199:
+    #####:  200:        case 0xdb: // DQT
+    #####:  201:            dqt = buf;
+    #####:  202:            while (size > 0 && dqt < end) {
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+    #####:  203:                int idx = dqt[0] & 0x0f;
+    #####:  204:                int f16 = dqt[0] & 0xf0;
+    #####:  205:                if (!jfif->pqtab[idx]) jfif->pqtab[idx] = malloc(64 * sizeof(int));
+branch  0 never executed
+branch  1 never executed
+    #####:  206:                if (!jfif->pqtab[idx]) break;
+branch  0 never executed
+branch  1 never executed
+    #####:  207:                if (dqt + 1 + 64 + (f16 ? 64 : 0) < end) {
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+    #####:  208:                    for (i=0; i<64; i++) {
+branch  0 never executed
+branch  1 never executed
+    #####:  209:                        jfif->pqtab[idx][ZIGZAG[i]] = f16 ? ((dqt[1 + i * 2] << 8) | (dqt[2 + i * 2] << 0)) : dqt[1 + i];
+branch  0 never executed
+branch  1 never executed
+        -:  210:                    }
+        -:  211:                }
+    #####:  212:                dqt += 1 + 64 + (f16 ? 64 : 0);
+branch  0 never executed
+branch  1 never executed
+    #####:  213:                size-= 1 + 64 + (f16 ? 64 : 0);
+branch  0 never executed
+branch  1 never executed
+        -:  214:            }
+    #####:  215:            break;
+        -:  216:
+    #####:  217:        case 0xc4: // DHT
+    #####:  218:            dht = buf;
+    #####:  219:            while (size > 0 && dht + 17 < end) {
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+    #####:  220:                int idx = dht[0] & 0x0f;
+    #####:  221:                int fac = dht[0] & 0xf0;
+    #####:  222:                int len = 0;
+    #####:  223:                for (i=1; i<1+16; i++) len += dht[i];
+branch  0 never executed
+branch  1 never executed
+    #####:  224:                if (len > end - dht - 17) len = end - dht - 17;
+branch  0 never executed
+branch  1 never executed
+    #####:  225:                if (len > 256) len = 256;
+branch  0 never executed
+branch  1 never executed
+    #####:  226:                if (fac) {
+branch  0 never executed
+branch  1 never executed
+    #####:  227:                    if (!jfif->phcac[idx]) jfif->phcac[idx] = calloc(1, sizeof(HUFCODEC));
+branch  0 never executed
+branch  1 never executed
+    #####:  228:                    if ( jfif->phcac[idx]) memcpy(jfif->phcac[idx]->huftab, &dht[1], 16 + len);
+branch  0 never executed
+branch  1 never executed
+        -:  229:                } else {
+    #####:  230:                    if (!jfif->phcdc[idx]) jfif->phcdc[idx] = calloc(1, sizeof(HUFCODEC));
+branch  0 never executed
+branch  1 never executed
+    #####:  231:                    if ( jfif->phcdc[idx]) memcpy(jfif->phcdc[idx]->huftab, &dht[1], 16 + len);
+branch  0 never executed
+branch  1 never executed
+        -:  232:                }
+    #####:  233:                dht += 17 + len;
+    #####:  234:                size-= 17 + len;
+        -:  235:            }
+    #####:  236:            break;
+        -:  237:        }
+    #####:  238:    }
+        -:  239:
+    #####:  240:read_data:
+    #####:  241:    fseek(fp, 0, SEEK_END);
+call    0 never executed
+    #####:  242:    jfif->datalen = ftell(fp) - offset;
+call    0 never executed
+    #####:  243:    jfif->databuf = malloc(jfif->datalen);
+    #####:  244:    if (jfif->databuf) {
+branch  0 never executed
+branch  1 never executed
+    #####:  245:        fseek(fp, offset, SEEK_SET);
+call    0 never executed
+    #####:  246:        fread(jfif->databuf, 1, jfif->datalen, fp);
+call    0 never executed
+        -:  247:    }
+        -:  248:
+    #####:  249:done:
+    #####:  250:    if (buf) free  (buf);
+branch  0 never executed
+branch  1 never executed
+    #####:  251:    if (fp ) fclose(fp );
+branch  0 never executed
+branch  1 never executed
+call    2 never executed
+    #####:  252:    if (ret == -1) {
+branch  0 never executed
+branch  1 never executed
+    #####:  253:        jfif_free(jfif);
+call    0 never executed
+    #####:  254:        jfif = NULL;
+        -:  255:    }
+    #####:  256:    return jfif;
+        -:  257:}
+        -:  258:
+function jfif_save called 24527 returned 100% blocks executed 99%
+    24527:  259:int jfif_save(void *ctxt, char *file)
+        -:  260:{
+    24527:  261:    JFIF *jfif = (JFIF*)ctxt;
+    24527:  262:    FILE *fp   = NULL;
+    24527:  263:    int   len  = 0;
+        -:  264:    int   i, j;
+    24527:  265:    int   ret  = -1;
+        -:  266:
+    24527:  267:    if (!jfif) return ret;
+branch  0 taken 1% (fallthrough)
+branch  1 taken 100%
+    24526:  268:    fp = fopen(file, "wb");
+call    0 returned 100%
+   24526*:  269:    if (!fp) goto done;
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+        -:  270:
+        -:  271:    // output SOI
+    24526:  272:    fputc(0xff, fp);
+call    0 returned 100%
+    24526:  273:    fputc(0xd8, fp);
+call    0 returned 100%
+        -:  274:
+        -:  275:    // output DQT
+   416942:  276:    for (i=0; i<16; i++) {
+branch  0 taken 94%
+branch  1 taken 6% (fallthrough)
+   392416:  277:        if (!jfif->pqtab[i]) continue;
+branch  0 taken 88% (fallthrough)
+branch  1 taken 12%
+    49052:  278:        len = 2 + 1 + 64;
+    49052:  279:        fputc(0xff, fp);
+call    0 returned 100%
+    49052:  280:        fputc(0xdb, fp);
+call    0 returned 100%
+    49052:  281:        fputc(len >> 8, fp);
+call    0 returned 100%
+    49052:  282:        fputc(len >> 0, fp);
+call    0 returned 100%
+    49052:  283:        fputc(i   , fp);
+call    0 returned 100%
+  3188380:  284:        for (j=0; j<64; j++) {
+branch  0 taken 98%
+branch  1 taken 2% (fallthrough)
+  3139328:  285:            fputc(jfif->pqtab[i][ZIGZAG[j]], fp);
+call    0 returned 100%
+        -:  286:        }
+        -:  287:    }
+        -:  288:
+        -:  289:    // output SOF0
+    24526:  290:    len = 2 + 1 + 2 + 2 + 1 + 3 * jfif->comp_num;
+    24526:  291:    fputc(0xff, fp);
+call    0 returned 100%
+    24526:  292:    fputc(0xc0, fp);
+call    0 returned 100%
+    24526:  293:    fputc(len >> 8, fp);
+call    0 returned 100%
+    24526:  294:    fputc(len >> 0, fp);
+call    0 returned 100%
+    24526:  295:    fputc(8   , fp); // precision 8bit
+call    0 returned 100%
+    24526:  296:    fputc(jfif->height >> 8, fp); // height
+call    0 returned 100%
+    24526:  297:    fputc(jfif->height >> 0, fp); // height
+call    0 returned 100%
+    24526:  298:    fputc(jfif->width  >> 8, fp); // width
+call    0 returned 100%
+    24526:  299:    fputc(jfif->width  >> 0, fp); // width
+call    0 returned 100%
+    24526:  300:    fputc(jfif->comp_num, fp);
+call    0 returned 100%
+    98104:  301:    for (i=0; i<jfif->comp_num; i++) {
+branch  0 taken 75%
+branch  1 taken 25% (fallthrough)
+    73578:  302:        fputc(jfif->comp_info[i].id, fp);
+call    0 returned 100%
+    73578:  303:        fputc((jfif->comp_info[i].samp_factor_v << 0)|(jfif->comp_info[i].samp_factor_h << 4), fp);
+call    0 returned 100%
+    73578:  304:        fputc(jfif->comp_info[i].qtab_idx, fp);
+call    0 returned 100%
+        -:  305:    }
+        -:  306:
+        -:  307:    // output DHT AC
+   416942:  308:    for (i=0; i<16; i++) {
+branch  0 taken 94%
+branch  1 taken 6% (fallthrough)
+   392416:  309:        if (!jfif->phcac[i]) continue;
+branch  0 taken 88% (fallthrough)
+branch  1 taken 12%
+    49052:  310:        fputc(0xff, fp);
+call    0 returned 100%
+    49052:  311:        fputc(0xc4, fp);
+call    0 returned 100%
+    49052:  312:        len = 2 + 1 + 16;
+   833884:  313:        for (j=0; j<16; j++) len += jfif->phcac[i]->huftab[j];
+branch  0 taken 94%
+branch  1 taken 6% (fallthrough)
+    49052:  314:        fputc(len >> 8, fp);
+call    0 returned 100%
+    49052:  315:        fputc(len >> 0, fp);
+call    0 returned 100%
+    49052:  316:        fputc(i + 0x10, fp);
+call    0 returned 100%
+    49052:  317:        fwrite(jfif->phcac[i]->huftab, len - 3, 1, fp);
+call    0 returned 100%
+        -:  318:    }
+        -:  319:
+        -:  320:    // output DHT DC
+   416942:  321:    for (i=0; i<16; i++) {
+branch  0 taken 94%
+branch  1 taken 6% (fallthrough)
+   392416:  322:        if (!jfif->phcdc[i]) continue;
+branch  0 taken 88% (fallthrough)
+branch  1 taken 12%
+    49052:  323:        fputc(0xff, fp);
+call    0 returned 100%
+    49052:  324:        fputc(0xc4, fp);
+call    0 returned 100%
+    49052:  325:        len = 2 + 1 + 16;
+   833884:  326:        for (j=0; j<16; j++) len += jfif->phcdc[i]->huftab[j];
+branch  0 taken 94%
+branch  1 taken 6% (fallthrough)
+    49052:  327:        fputc(len >> 8, fp);
+call    0 returned 100%
+    49052:  328:        fputc(len >> 0, fp);
+call    0 returned 100%
+    49052:  329:        fputc(i + 0x00, fp);
+call    0 returned 100%
+    49052:  330:        fwrite(jfif->phcdc[i]->huftab, len - 3, 1, fp);
+call    0 returned 100%
+        -:  331:    }
+        -:  332:
+        -:  333:    // output SOS
+    24526:  334:    len = 2 + 1 + 2 * jfif->comp_num + 3;
+    24526:  335:    fputc(0xff, fp);
+call    0 returned 100%
+    24526:  336:    fputc(0xda, fp);
+call    0 returned 100%
+    24526:  337:    fputc(len >> 8, fp);
+call    0 returned 100%
+    24526:  338:    fputc(len >> 0, fp);
+call    0 returned 100%
+    24526:  339:    fputc(jfif->comp_num, fp);
+call    0 returned 100%
+    98104:  340:    for (i=0; i<jfif->comp_num; i++) {
+branch  0 taken 75%
+branch  1 taken 25% (fallthrough)
+    73578:  341:        fputc(jfif->comp_info[i].id, fp);
+call    0 returned 100%
+    73578:  342:        fputc((jfif->comp_info[i].htab_idx_ac << 0)|(jfif->comp_info[i].htab_idx_dc << 4), fp);
+call    0 returned 100%
+        -:  343:    }
+    24526:  344:    fputc(0x00, fp);
+call    0 returned 100%
+    24526:  345:    fputc(0x00, fp);
+call    0 returned 100%
+    24526:  346:    fputc(0x00, fp);
+call    0 returned 100%
+        -:  347:
+        -:  348:    // output data
+    24526:  349:    if (jfif->databuf) {
+branch  0 taken 100% (fallthrough)
+branch  1 taken 0%
+    24526:  350:        fwrite(jfif->databuf, jfif->datalen, 1, fp);
+call    0 returned 100%
+        -:  351:    }
+    24526:  352:    ret = 0;
+        -:  353:
+    24526:  354:done:
+    24526:  355:    if (fp) fclose(fp);
+branch  0 taken 100% (fallthrough)
+branch  1 taken 0%
+call    2 returned 100%
+    24526:  356:    return ret;
+        -:  357:}
+        -:  358:
+function jfif_free called 24528 returned 100% blocks executed 100%
+    24528:  359:void jfif_free(void *ctxt)
+        -:  360:{
+    24528:  361:    JFIF *jfif = (JFIF*)ctxt;
+        -:  362:    int   i;
+    24528:  363:    if (!jfif) return;
+branch  0 taken 1% (fallthrough)
+branch  1 taken 100%
+   416959:  364:    for (i=0; i<16; i++) {
+branch  0 taken 94%
+branch  1 taken 6% (fallthrough)
+   392432:  365:        if (jfif->pqtab[i]) free(jfif->pqtab[i]);
+branch  0 taken 12% (fallthrough)
+branch  1 taken 88%
+   392432:  366:        if (jfif->phcac[i]) free(jfif->phcac[i]);
+branch  0 taken 12% (fallthrough)
+branch  1 taken 88%
+   392432:  367:        if (jfif->phcdc[i]) free(jfif->phcdc[i]);
+branch  0 taken 12% (fallthrough)
+branch  1 taken 88%
+        -:  368:    }
+    24527:  369:    if (jfif->databuf) free(jfif->databuf);
+branch  0 taken 100% (fallthrough)
+branch  1 taken 0%
+    24527:  370:    free(jfif);
+        -:  371:}
+        -:  372:
+function jfif_decode called 0 returned 0% blocks executed 0%
+    #####:  373:int jfif_decode(void *ctxt, BMP *pb)
+        -:  374:{
+    #####:  375:    JFIF *jfif    = (JFIF*)ctxt;
+    #####:  376:    void *bs      = NULL;
+    #####:  377:    int  *ftab[16]= {0};
+    #####:  378:    int   dc[4]   = {0};
+        -:  379:    int   mcuw, mcuh, mcuc, mcur, mcui, jw, jh;
+        -:  380:    int   i, j, c, h, v, x, y;
+    #####:  381:    int   sfh_max = 0;
+    #####:  382:    int   sfv_max = 0;
+    #####:  383:    int   yuv_stride[4] = {0};
+    #####:  384:    int   yuv_height[4] = {0};
+    #####:  385:    int  *yuv_datbuf[4] = {0};
+        -:  386:    int  *idst, *isrc;
+        -:  387:    int  *ysrc, *usrc, *vsrc;
+        -:  388:    BYTE *bdst;
+    #####:  389:    int   ret = -1;
+        -:  390:
+    #####:  391:    if (!ctxt || !pb) {
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+    #####:  392:        printf("invalid input params !\n");
+call    0 never executed
+    #####:  393:        return -1;
+        -:  394:    }
+        -:  395:
+        -:  396:    // init dct module
+    #####:  397:    init_dct_module();
+call    0 never executed
+        -:  398:
+        -:  399:    //++ init ftab
+    #####:  400:    for (i=0; i<16; i++) {
+branch  0 never executed
+branch  1 never executed
+    #####:  401:        if (jfif->pqtab[i]) {
+branch  0 never executed
+branch  1 never executed
+    #####:  402:            ftab[i] = malloc(64 * sizeof(int));
+    #####:  403:            if (ftab[i]) {
+branch  0 never executed
+branch  1 never executed
+    #####:  404:                init_idct_ftab(ftab[i], jfif->pqtab[i]);
+call    0 never executed
+        -:  405:            } else {
+    #####:  406:                goto done;
+        -:  407:            }
+        -:  408:        }
+        -:  409:    }
+        -:  410:    //-- init ftab
+        -:  411:
+        -:  412:    //++ calculate mcu info
+    #####:  413:    for (c=0; c<jfif->comp_num; c++) {
+branch  0 never executed
+branch  1 never executed
+    #####:  414:        if (sfh_max < jfif->comp_info[c].samp_factor_h) {
+branch  0 never executed
+branch  1 never executed
+    #####:  415:            sfh_max = jfif->comp_info[c].samp_factor_h;
+        -:  416:        }
+    #####:  417:        if (sfv_max < jfif->comp_info[c].samp_factor_v) {
+branch  0 never executed
+branch  1 never executed
+    #####:  418:            sfv_max = jfif->comp_info[c].samp_factor_v;
+        -:  419:        }
+        -:  420:    }
+    #####:  421:    if (!sfh_max) sfh_max = 1;
+branch  0 never executed
+branch  1 never executed
+    #####:  422:    if (!sfv_max) sfv_max = 1;
+branch  0 never executed
+branch  1 never executed
+    #####:  423:    mcuw = sfh_max * 8;
+    #####:  424:    mcuh = sfv_max * 8;
+    #####:  425:    jw = ALIGN(jfif->width , mcuw);
+    #####:  426:    jh = ALIGN(jfif->height, mcuh);
+    #####:  427:    mcuc = jw / mcuw;
+    #####:  428:    mcur = jh / mcuh;
+        -:  429:    //-- calculate mcu info
+        -:  430:
+        -:  431:    // create yuv buffer for decoding
+    #####:  432:    yuv_stride[0] = jw;
+    #####:  433:    yuv_stride[1] = jw * jfif->comp_info[1].samp_factor_h / sfh_max;
+    #####:  434:    yuv_stride[2] = jw * jfif->comp_info[2].samp_factor_h / sfh_max;
+    #####:  435:    yuv_stride[3] = jw * jfif->comp_info[3].samp_factor_h / sfh_max;
+    #####:  436:    yuv_height[0] = jh;
+    #####:  437:    yuv_height[1] = jh * jfif->comp_info[1].samp_factor_v / sfv_max;
+    #####:  438:    yuv_height[2] = jh * jfif->comp_info[2].samp_factor_v / sfv_max;
+    #####:  439:    yuv_height[3] = jh * jfif->comp_info[3].samp_factor_v / sfv_max;
+    #####:  440:    yuv_datbuf[0] = malloc(sizeof(int) * yuv_stride[0] * yuv_height[0]);
+    #####:  441:    yuv_datbuf[1] = malloc(sizeof(int) * yuv_stride[1] * yuv_height[1]);
+    #####:  442:    yuv_datbuf[2] = malloc(sizeof(int) * yuv_stride[2] * yuv_height[2]);
+    #####:  443:    yuv_datbuf[3] = malloc(sizeof(int) * yuv_stride[3] * yuv_height[3]);
+    #####:  444:    if (!yuv_datbuf[0] || !yuv_datbuf[1] || !yuv_datbuf[2] || !yuv_datbuf[3]) {
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+branch  4 never executed
+branch  5 never executed
+branch  6 never executed
+branch  7 never executed
+    #####:  445:        goto done;
+        -:  446:    }
+        -:  447:
+        -:  448:    // open bit stream
+    #####:  449:    bs = bitstr_open(jfif->databuf, "mem", jfif->datalen);
+call    0 never executed
+    #####:  450:    if (!bs) {
+branch  0 never executed
+branch  1 never executed
+    #####:  451:        printf("failed to open bitstr for jfif_decode !");
+call    0 never executed
+    #####:  452:        return -1;
+        -:  453:    }
+        -:  454:
+        -:  455:    // init huffman codec
+    #####:  456:    for (i=0; i<16; i++) {
+branch  0 never executed
+branch  1 never executed
+    #####:  457:        if (jfif->phcac[i]) {
+branch  0 never executed
+branch  1 never executed
+    #####:  458:            jfif->phcac[i]->input = bs;
+    #####:  459:            huffman_decode_init(jfif->phcac[i]);
+call    0 never executed
+        -:  460:        }
+    #####:  461:        if (jfif->phcdc[i]) {
+branch  0 never executed
+branch  1 never executed
+    #####:  462:            jfif->phcdc[i]->input = bs;
+    #####:  463:            huffman_decode_init(jfif->phcdc[i]);
+call    0 never executed
+        -:  464:        }
+        -:  465:    }
+        -:  466:
+    #####:  467:    for (mcui=0; mcui<mcuc*mcur; mcui++) {
+branch  0 never executed
+branch  1 never executed
+    #####:  468:        for (c=0; c<jfif->comp_num; c++) {
+branch  0 never executed
+branch  1 never executed
+    #####:  469:            for (v=0; v<jfif->comp_info[c].samp_factor_v; v++) {
+branch  0 never executed
+branch  1 never executed
+    #####:  470:                for (h=0; h<jfif->comp_info[c].samp_factor_h; h++) {
+branch  0 never executed
+branch  1 never executed
+    #####:  471:                    HUFCODEC *hcac = jfif->phcac[jfif->comp_info[c].htab_idx_ac];
+    #####:  472:                    HUFCODEC *hcdc = jfif->phcdc[jfif->comp_info[c].htab_idx_dc];
+    #####:  473:                    int       fidx = jfif->comp_info[c].qtab_idx;
+        -:  474:                    int size, znum, code;
+    #####:  475:                    int du[64] = {0};
+        -:  476:
+        -:  477:                    //+ decode dc
+    #####:  478:                    size = huffman_decode_step(hcdc) & 0xf;
+call    0 never executed
+    #####:  479:                    if (size) {
+branch  0 never executed
+branch  1 never executed
+    #####:  480:                        code = bitstr_get_bits(bs  , size);
+call    0 never executed
+    #####:  481:                        code = category_decode(code, size);
+call    0 never executed
+        -:  482:                    }
+        -:  483:                    else {
+    #####:  484:                        code = 0;
+        -:  485:                    }
+    #####:  486:                    dc[c] += code;
+    #####:  487:                    du[0]  = dc[c];
+        -:  488:                    //- decode dc
+        -:  489:
+        -:  490:                    //+ decode ac
+    #####:  491:                    for (i=1; i<64; ) {
+branch  0 never executed
+branch  1 never executed
+    #####:  492:                        code = huffman_decode_step(hcac);
+call    0 never executed
+    #####:  493:                        if (code <= 0) break;
+branch  0 never executed
+branch  1 never executed
+    #####:  494:                        size = (code >> 0) & 0xf;
+    #####:  495:                        znum = (code >> 4) & 0xf;
+    #####:  496:                        i   += znum;
+    #####:  497:                        code = bitstr_get_bits(bs  , size);
+call    0 never executed
+    #####:  498:                        code = category_decode(code, size);
+call    0 never executed
+    #####:  499:                        if (i < 64) du[i++] = code;
+branch  0 never executed
+branch  1 never executed
+        -:  500:                    }
+        -:  501:                    //- decode ac
+        -:  502:
+        -:  503:                    // de-zigzag
+    #####:  504:                    zigzag_decode(du);
+call    0 never executed
+        -:  505:
+        -:  506:                    // idct
+    #####:  507:                    idct2d8x8(du, ftab[fidx]);
+call    0 never executed
+        -:  508:
+        -:  509:                    // copy du to yuv buffer
+    #####:  510:                    x    = ((mcui % mcuc) * mcuw + h * 8) * jfif->comp_info[c].samp_factor_h / sfh_max;
+    #####:  511:                    y    = ((mcui / mcuc) * mcuh + v * 8) * jfif->comp_info[c].samp_factor_v / sfv_max;
+    #####:  512:                    idst = yuv_datbuf[c] + y * yuv_stride[c] + x;
+    #####:  513:                    isrc = du;
+    #####:  514:                    for (i=0; i<8; i++) {
+branch  0 never executed
+branch  1 never executed
+    #####:  515:                        memcpy(idst, isrc, 8 * sizeof(int));
+    #####:  516:                        idst += yuv_stride[c];
+    #####:  517:                        isrc += 8;
+        -:  518:                    }
+        -:  519:                }
+        -:  520:            }
+        -:  521:        }
+        -:  522:    }
+        -:  523:
+        -:  524:    // close huffman codec
+    #####:  525:    for (i=0; i<16; i++) {
+branch  0 never executed
+branch  1 never executed
+    #####:  526:        if (jfif->phcac[i]) huffman_decode_done(jfif->phcac[i]);
+branch  0 never executed
+branch  1 never executed
+call    2 never executed
+    #####:  527:        if (jfif->phcdc[i]) huffman_decode_done(jfif->phcdc[i]);
+branch  0 never executed
+branch  1 never executed
+call    2 never executed
+        -:  528:    }
+        -:  529:
+        -:  530:    // close bit stream
+    #####:  531:    bitstr_close(bs);
+call    0 never executed
+        -:  532:
+        -:  533:    // create bitmap, and convert yuv to rgb
+    #####:  534:    bmp_create(pb, jfif->width, jfif->height);
+call    0 never executed
+    #####:  535:    bdst = (BYTE*)pb->pdata;
+    #####:  536:    ysrc = yuv_datbuf[0];
+    #####:  537:    for (i=0; i<jfif->height; i++) {
+branch  0 never executed
+branch  1 never executed
+    #####:  538:        int uy = i * jfif->comp_info[1].samp_factor_v / sfv_max;
+    #####:  539:        int vy = i * jfif->comp_info[2].samp_factor_v / sfv_max;
+    #####:  540:        for (j=0; j<jfif->width; j++) {
+branch  0 never executed
+branch  1 never executed
+    #####:  541:            int ux = j * jfif->comp_info[1].samp_factor_h / sfh_max;
+    #####:  542:            int vx = j * jfif->comp_info[2].samp_factor_h / sfh_max;
+    #####:  543:            usrc = yuv_datbuf[2] + uy * yuv_stride[2] + ux;
+    #####:  544:            vsrc = yuv_datbuf[1] + vy * yuv_stride[1] + vx;
+    #####:  545:            yuv_to_rgb(*ysrc, *vsrc, *usrc, bdst + 2, bdst + 1, bdst + 0);
+call    0 never executed
+    #####:  546:            bdst += 3;
+    #####:  547:            ysrc += 1;
+        -:  548:        }
+    #####:  549:        bdst -= jfif->width * 3;
+    #####:  550:        bdst += pb->stride;
+    #####:  551:        ysrc -= jfif->width * 1;
+    #####:  552:        ysrc += yuv_stride[0];
+        -:  553:    }
+        -:  554:
+        -:  555:    // success
+    #####:  556:    ret = 0;
+        -:  557:
+    #####:  558:done:
+    #####:  559:    if (yuv_datbuf[0]) free(yuv_datbuf[0]);
+branch  0 never executed
+branch  1 never executed
+    #####:  560:    if (yuv_datbuf[1]) free(yuv_datbuf[1]);
+branch  0 never executed
+branch  1 never executed
+    #####:  561:    if (yuv_datbuf[2]) free(yuv_datbuf[2]);
+branch  0 never executed
+branch  1 never executed
+    #####:  562:    if (yuv_datbuf[3]) free(yuv_datbuf[3]);
+branch  0 never executed
+branch  1 never executed
+        -:  563:    //++ free ftab
+    #####:  564:    for (i=0; i<16; i++) {
+branch  0 never executed
+branch  1 never executed
+    #####:  565:        if (ftab[i]) {
+branch  0 never executed
+branch  1 never executed
+    #####:  566:            free(ftab[i]);
+        -:  567:        }
+        -:  568:    }
+        -:  569:    //-- free ftab
+    #####:  570:    return ret;
+        -:  571:}
+        -:  572:
+        -:  573:#define DU_TYPE_LUMIN  0
+        -:  574:#define DU_TYPE_CHROM  1
+        -:  575:
+        -:  576:typedef struct {
+        -:  577:    unsigned runlen   : 4;
+        -:  578:    unsigned codesize : 4;
+        -:  579:    unsigned codedata : 16;
+        -:  580:} RLEITEM;
+        -:  581:
+function jfif_encode_du called 39909774 returned 100% blocks executed 100%
+ 39909774:  582:static void jfif_encode_du(JFIF *jfif, int type, int du[64], int *dc)
+        -:  583:{
+ 39909774:  584:    HUFCODEC *hfcac = jfif->phcac[type];
+ 39909774:  585:    HUFCODEC *hfcdc = jfif->phcdc[type];
+ 39909774:  586:    int      *pqtab = jfif->pqtab[type];
+ 39909774:  587:    void     *bs    = hfcac->output;
+        -:  588:    int       diff, code, size;
+        -:  589:    RLEITEM   rlelist[63];
+        -:  590:    int       i, j, n, eob;
+        -:  591:
+        -:  592:    // fdct
+ 39909774:  593:    fdct2d8x8(du, NULL);
+call    0 returned 100%
+        -:  594:
+        -:  595:    // quant
+ 39909774:  596:    quant_encode(du, pqtab);
+call    0 returned 100%
+        -:  597:
+        -:  598:    // zigzag
+ 39909774:  599:    zigzag_encode(du);
+call    0 returned 100%
+        -:  600:
+        -:  601:    // dc
+ 39909774:  602:    diff = du[0] - *dc;
+ 39909774:  603:    *dc  = du[0];
+        -:  604:
+        -:  605:    // category encode for dc
+ 39909774:  606:    code = diff;
+ 39909774:  607:    category_encode(&code, &size);
+call    0 returned 100%
+        -:  608:
+        -:  609:    // huffman encode for dc
+ 39909774:  610:    huffman_encode_step(hfcdc, size);
+call    0 returned 100%
+ 39909774:  611:    bitstr_put_bits(bs, code, size);
+call    0 returned 100%
+        -:  612:
+        -:  613:    // rle encode for ac
+2554225536:  614:    for (i=1, j=0, n=0, eob=0; i<64 && j<63; i++) {
+branch  0 taken 98% (fallthrough)
+branch  1 taken 2%
+branch  2 taken 100%
+branch  3 taken 0% (fallthrough)
+2514315762:  615:        if (du[i] == 0 && n < 15) {
+branch  0 taken 98% (fallthrough)
+branch  1 taken 2%
+branch  2 taken 95% (fallthrough)
+branch  3 taken 5%
+2351272751:  616:            n++;
+        -:  617:        } else {
+163043011:  618:            code = du[i]; size = 0;
+163043011:  619:            category_encode(&code, &size);
+call    0 returned 100%
+163043011:  620:            rlelist[j].runlen   = n;
+163043011:  621:            rlelist[j].codesize = size;
+163043011:  622:            rlelist[j].codedata = code;
+163043011:  623:            n = 0;
+163043011:  624:            j++;
+163043011:  625:            if (size != 0) eob = j;
+branch  0 taken 30% (fallthrough)
+branch  1 taken 70%
+        -:  626:        }
+        -:  627:    }
+        -:  628:
+        -:  629:    // set eob
+ 39909774:  630:    if (du[63] == 0) {
+branch  0 taken 100% (fallthrough)
+branch  1 taken 1%
+ 39780259:  631:        rlelist[eob].runlen   = 0;
+ 39780259:  632:        rlelist[eob].codesize = 0;
+ 39780259:  633:        rlelist[eob].codedata = 0;
+ 39780259:  634:        j = eob + 1;
+        -:  635:    }
+        -:  636:
+        -:  637:    // huffman encode for ac
+129454345:  638:    for (i=0; i<j; i++) {
+branch  0 taken 69%
+branch  1 taken 31% (fallthrough)
+ 89544571:  639:        huffman_encode_step(hfcac, (rlelist[i].runlen << 4) | (rlelist[i].codesize << 0));
+call    0 returned 100%
+ 89544571:  640:        bitstr_put_bits(bs, rlelist[i].codedata, rlelist[i].codesize);
+call    0 returned 100%
+        -:  641:    }
+ 39909774:  642:}
+        -:  643:
+function jfif_encode called 24527 returned 100% blocks executed 93%
+    24527:  644:void* jfif_encode(BMP *pb)
+        -:  645:{
+    24527:  646:    JFIF *jfif = NULL;
+    24527:  647:    void *bs   = NULL;
+        -:  648:    int   jw, jh;
+    24527:  649:    int  *yuv_datbuf[3] = {0};
+        -:  650:    int  *ydst, *udst, *vdst;
+        -:  651:    int  *isrc, *idst;
+        -:  652:    BYTE *bsrc;
+    24527:  653:    int   du[64]= {0};
+    24527:  654:    int   dc[4 ]= {0};
+        -:  655:    int   i, j, m, n;
+    24527:  656:    int   failed = 1;
+        -:  657:
+        -:  658:    // check input params
+    24527:  659:    if (!pb) {
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+    #####:  660:        printf("invalid input params !\n");
+call    0 never executed
+    #####:  661:        return NULL;
+        -:  662:    }
+        -:  663:
+        -:  664:    // allocate jfif context
+    24527:  665:    jfif = calloc(1, sizeof(JFIF));
+   24527*:  666:    if (!jfif) return NULL;
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+        -:  667:
+        -:  668:    // init dct module
+    24527:  669:    init_dct_module();
+call    0 returned 100%
+        -:  670:
+        -:  671:    // init jfif context
+    24527:  672:    jfif->width    = pb->width;
+    24527:  673:    jfif->height   = pb->height;
+    24527:  674:    jfif->pqtab[0] = malloc(64*sizeof(int));
+    24527:  675:    jfif->pqtab[1] = malloc(64*sizeof(int));
+    24527:  676:    jfif->phcac[0] = calloc(1, sizeof(HUFCODEC));
+    24527:  677:    jfif->phcac[1] = calloc(1, sizeof(HUFCODEC));
+    24527:  678:    jfif->phcdc[0] = calloc(1, sizeof(HUFCODEC));
+    24527:  679:    jfif->phcdc[1] = calloc(1, sizeof(HUFCODEC));
+    24527:  680:    jfif->datalen  = jfif->width * jfif->height * 2;
+    24527:  681:    jfif->databuf  = malloc(jfif->datalen);
+    24527:  682:    if (  !jfif->pqtab[0] || !jfif->pqtab[1]
+branch  0 taken 100% (fallthrough)
+branch  1 taken 0%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0%
+    24527:  683:       || !jfif->phcac[0] || !jfif->phcac[1]
+branch  0 taken 100% (fallthrough)
+branch  1 taken 0%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0%
+    24527:  684:       || !jfif->phcdc[0] || !jfif->phcdc[1]
+branch  0 taken 100% (fallthrough)
+branch  1 taken 0%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0%
+    24527:  685:       || !jfif->databuf ) {
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+    #####:  686:        goto done;
+        -:  687:    }
+        -:  688:
+        -:  689:    // init qtab
+    24527:  690:    memcpy(jfif->pqtab[0], STD_QUANT_TAB_LUMIN, 64*sizeof(int));
+    24527:  691:    memcpy(jfif->pqtab[1], STD_QUANT_TAB_CHROM, 64*sizeof(int));
+        -:  692:
+        -:  693:    // open bit stream
+    24527:  694:    bs = bitstr_open(jfif->databuf, "mem", jfif->datalen);
+call    0 returned 100%
+    24527:  695:    if (!bs) {
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+    #####:  696:        printf("failed to open bitstr for jfif_decode !");
+call    0 never executed
+    #####:  697:        goto done;
+        -:  698:    }
+        -:  699:
+        -:  700:    // init huffman codec
+    24527:  701:    memcpy(jfif->phcac[0]->huftab, STD_HUFTAB_LUMIN_AC, MAX_HUFFMAN_CODE_LEN + 256);
+    24527:  702:    memcpy(jfif->phcac[1]->huftab, STD_HUFTAB_CHROM_AC, MAX_HUFFMAN_CODE_LEN + 256);
+    24527:  703:    memcpy(jfif->phcdc[0]->huftab, STD_HUFTAB_LUMIN_DC, MAX_HUFFMAN_CODE_LEN + 256);
+    24527:  704:    memcpy(jfif->phcdc[1]->huftab, STD_HUFTAB_CHROM_DC, MAX_HUFFMAN_CODE_LEN + 256);
+    24527:  705:    jfif->phcac[0]->output = bs; huffman_encode_init(jfif->phcac[0], 1);
+call    0 returned 100%
+    24527:  706:    jfif->phcac[1]->output = bs; huffman_encode_init(jfif->phcac[1], 1);
+call    0 returned 100%
+    24527:  707:    jfif->phcdc[0]->output = bs; huffman_encode_init(jfif->phcdc[0], 1);
+call    0 returned 100%
+    24527:  708:    jfif->phcdc[1]->output = bs; huffman_encode_init(jfif->phcdc[1], 1);
+call    0 returned 100%
+        -:  709:
+        -:  710:    // init comp_num & comp_info
+    24527:  711:    jfif->comp_num                   = 3;
+    24527:  712:    jfif->comp_info[0].id            = 1;
+    24527:  713:    jfif->comp_info[0].samp_factor_v = 2;
+    24527:  714:    jfif->comp_info[0].samp_factor_h = 2;
+    24527:  715:    jfif->comp_info[0].qtab_idx      = 0;
+    24527:  716:    jfif->comp_info[0].htab_idx_ac   = 0;
+    24527:  717:    jfif->comp_info[0].htab_idx_dc   = 0;
+    24527:  718:    jfif->comp_info[1].id            = 2;
+    24527:  719:    jfif->comp_info[1].samp_factor_v = 1;
+    24527:  720:    jfif->comp_info[1].samp_factor_h = 1;
+    24527:  721:    jfif->comp_info[1].qtab_idx      = 1;
+    24527:  722:    jfif->comp_info[1].htab_idx_ac   = 1;
+    24527:  723:    jfif->comp_info[1].htab_idx_dc   = 1;
+    24527:  724:    jfif->comp_info[2].id            = 3;
+    24527:  725:    jfif->comp_info[2].samp_factor_v = 1;
+    24527:  726:    jfif->comp_info[2].samp_factor_h = 1;
+    24527:  727:    jfif->comp_info[2].qtab_idx      = 1;
+    24527:  728:    jfif->comp_info[2].htab_idx_ac   = 1;
+    24527:  729:    jfif->comp_info[2].htab_idx_dc   = 1;
+        -:  730:
+        -:  731:    // init jw & jw, init yuv data buffer
+    24527:  732:    jw = ALIGN(pb->width , 16);
+    24527:  733:    jh = ALIGN(pb->height, 16);
+    24527:  734:    yuv_datbuf[0] = calloc(1, sizeof(int) * jw * jh / 1);
+    24527:  735:    yuv_datbuf[1] = calloc(1, sizeof(int) * jw * jh / 4);
+    24527:  736:    yuv_datbuf[2] = calloc(1, sizeof(int) * jw * jh / 4);
+    24527:  737:    if (!yuv_datbuf[0] || !yuv_datbuf[1] || !yuv_datbuf[2]) {
+branch  0 taken 100% (fallthrough)
+branch  1 taken 1%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0%
+branch  4 taken 0% (fallthrough)
+branch  5 taken 100%
+        1:  738:        goto done;
+        -:  739:    }
+        -:  740:
+        -:  741:    // convert rgb to yuv
+    24526:  742:    bsrc = pb->pdata;
+    24526:  743:    ydst = yuv_datbuf[0];
+    24526:  744:    udst = yuv_datbuf[1];
+    24526:  745:    vdst = yuv_datbuf[2];
+139395755:  746:    for (i=0; i<pb->height; i++) {
+branch  0 taken 100%
+branch  1 taken 1% (fallthrough)
+1760151429:  747:        for (j=0; j<pb->width; j++) {
+branch  0 taken 92%
+branch  1 taken 8% (fallthrough)
+1620780200:  748:            rgb_to_yuv(bsrc[2], bsrc[1], bsrc[0], ydst, udst, vdst);
+call    0 returned 100%
+1620780200:  749:            bsrc += 3;
+1620780200:  750:            ydst += 1;
+1620780200:  751:            if (j & 1) {
+branch  0 taken 50% (fallthrough)
+branch  1 taken 50%
+810390100:  752:                udst += 1;
+810390100:  753:                vdst += 1;
+        -:  754:            }
+        -:  755:        }
+139371229:  756:        bsrc -= pb->width * 3; bsrc += pb->stride;
+139371229:  757:        ydst -= pb->width * 1; ydst += jw;
+139371229:  758:        udst -= pb->width / 2;
+139371229:  759:        vdst -= pb->width / 2;
+139371229:  760:        if (i & 1) {
+branch  0 taken 50% (fallthrough)
+branch  1 taken 50%
+ 69685614:  761:            udst += jw / 2;
+ 69685614:  762:            vdst += jw / 2;
+        -:  763:        }
+        -:  764:    }
+        -:  765:
+  8747487:  766:    for (m=0; m<jh/16; m++) {
+branch  0 taken 100%
+branch  1 taken 1% (fallthrough)
+ 15374590:  767:        for (n=0; n<jw/16; n++) {
+branch  0 taken 43%
+branch  1 taken 57% (fallthrough)
+        -:  768:            //++ encode mcu, yuv 4:2:0
+        -:  769:            //+ y du0
+  6651629:  770:            isrc = yuv_datbuf[0] + (m * 16 + 0) * jw + n * 16 + 0;
+  6651629:  771:            idst = du;
+ 59864661:  772:            for (i=0; i<8; i++) {
+branch  0 taken 89%
+branch  1 taken 11% (fallthrough)
+ 53213032:  773:                memcpy(idst, isrc, 8 * sizeof(int));
+ 53213032:  774:                isrc += jw; idst += 8;
+        -:  775:            }
+  6651629:  776:            jfif_encode_du(jfif, DU_TYPE_LUMIN, du, &(dc[0]));
+call    0 returned 100%
+        -:  777:            //- y du0
+        -:  778:
+        -:  779:            //+ y du1
+  6651629:  780:            isrc = yuv_datbuf[0] + (m * 16 + 0) * jw + n * 16 + 8;
+  6651629:  781:            idst = du;
+ 59864661:  782:            for (i=0; i<8; i++) {
+branch  0 taken 89%
+branch  1 taken 11% (fallthrough)
+ 53213032:  783:                memcpy(idst, isrc, 8 * sizeof(int));
+ 53213032:  784:                isrc += jw; idst += 8;
+        -:  785:            }
+  6651629:  786:            jfif_encode_du(jfif, DU_TYPE_LUMIN, du, &(dc[0]));
+call    0 returned 100%
+        -:  787:            //- y du1
+        -:  788:
+        -:  789:            //+ y du2
+  6651629:  790:            isrc = yuv_datbuf[0] + (m * 16 + 8) * jw + n * 16 + 0;
+  6651629:  791:            idst = du;
+ 59864661:  792:            for (i=0; i<8; i++) {
+branch  0 taken 89%
+branch  1 taken 11% (fallthrough)
+ 53213032:  793:                memcpy(idst, isrc, 8 * sizeof(int));
+ 53213032:  794:                isrc += jw; idst += 8;
+        -:  795:            }
+  6651629:  796:            jfif_encode_du(jfif, DU_TYPE_LUMIN, du, &(dc[0]));
+call    0 returned 100%
+        -:  797:            //- y du2
+        -:  798:
+        -:  799:            //+ y du3
+  6651629:  800:            isrc = yuv_datbuf[0] + (m * 16 + 8) * jw + n * 16 + 8;
+  6651629:  801:            idst = du;
+ 59864661:  802:            for (i=0; i<8; i++) {
+branch  0 taken 89%
+branch  1 taken 11% (fallthrough)
+ 53213032:  803:                memcpy(idst, isrc, 8 * sizeof(int));
+ 53213032:  804:                isrc += jw; idst += 8;
+        -:  805:            }
+  6651629:  806:            jfif_encode_du(jfif, DU_TYPE_LUMIN, du, &(dc[0]));
+call    0 returned 100%
+        -:  807:            //- y du3
+        -:  808:
+        -:  809:            //+ u du
+  6651629:  810:            isrc = yuv_datbuf[1] + m * 8 * (jw/2) + n * 8;
+  6651629:  811:            idst = du;
+ 59864661:  812:            for (i=0; i<8; i++) {
+branch  0 taken 89%
+branch  1 taken 11% (fallthrough)
+ 53213032:  813:                memcpy(idst, isrc, 8 * sizeof(int));
+ 53213032:  814:                isrc += jw/2; idst += 8;
+        -:  815:            }
+  6651629:  816:            jfif_encode_du(jfif, DU_TYPE_CHROM, du, &(dc[1]));
+call    0 returned 100%
+        -:  817:            //- u du
+        -:  818:
+        -:  819:            //+ v du
+  6651629:  820:            isrc = yuv_datbuf[2] + m * 8 * (jw/2) + n * 8;
+  6651629:  821:            idst = du;
+ 59864661:  822:            for (i=0; i<8; i++) {
+branch  0 taken 89%
+branch  1 taken 11% (fallthrough)
+ 53213032:  823:                memcpy(idst, isrc, 8 * sizeof(int));
+ 53213032:  824:                isrc += jw/2; idst += 8;
+        -:  825:            }
+  6651629:  826:            jfif_encode_du(jfif, DU_TYPE_CHROM, du, &(dc[2]));
+call    0 returned 100%
+        -:  827:            //- v du
+        -:  828:            //-- encode mcu, yuv 4:2:0
+        -:  829:        }
+        -:  830:    }
+    24526:  831:    failed = 0;
+        -:  832:
+    24527:  833:done:
+        -:  834:    // free yuv data buffer
+    24527:  835:    if (yuv_datbuf[0]) free(yuv_datbuf[0]);
+branch  0 taken 100% (fallthrough)
+branch  1 taken 1%
+    24527:  836:    if (yuv_datbuf[1]) free(yuv_datbuf[1]);
+branch  0 taken 100% (fallthrough)
+branch  1 taken 1%
+    24527:  837:    if (yuv_datbuf[2]) free(yuv_datbuf[2]);
+branch  0 taken 100% (fallthrough)
+branch  1 taken 1%
+        -:  838:
+        -:  839:    // close huffman codec
+    24527:  840:    huffman_encode_done(jfif->phcac[0]);
+call    0 returned 100%
+    24527:  841:    huffman_encode_done(jfif->phcac[1]);
+call    0 returned 100%
+    24527:  842:    huffman_encode_done(jfif->phcdc[0]);
+call    0 returned 100%
+    24527:  843:    huffman_encode_done(jfif->phcdc[1]);
+call    0 returned 100%
+    24527:  844:    jfif->datalen = bitstr_tell(bs);
+call    0 returned 100%
+        -:  845:
+        -:  846:    // close bit stream
+    24527:  847:    bitstr_close(bs);
+call    0 returned 100%
+        -:  848:
+        -:  849:    // if failed free context
+    24527:  850:    if (failed) {
+branch  0 taken 1% (fallthrough)
+branch  1 taken 100%
+        1:  851:        jfif_free(jfif);
+call    0 returned 100%
+        1:  852:        jfif = NULL;
+        -:  853:    }
+        -:  854:
+        -:  855:    // return context
+    24527:  856:    return jfif;
+        -:  857:}
+        -:  858:
+        -:  859:
+        -:  860:
+        -:  861:
+        -:  862:
+        -:  863:
+        -:  864:

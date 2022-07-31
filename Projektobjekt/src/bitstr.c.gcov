@@ -1,0 +1,512 @@
+        -:    0:Source:bitstr.c
+        -:    0:Graph:bitstr.gcno
+        -:    0:Data:bitstr.gcda
+        -:    0:Runs:24527
+        -:    1:// 包含头文件
+        -:    2:#include <stdlib.h>
+        -:    3:#include <string.h>
+        -:    4:#include "stdefine.h"
+        -:    5:#include "bitstr.h"
+        -:    6:
+        -:    7:// 预编译开关
+        -:    8:#define USE_JPEG_BITSTR  1
+        -:    9:
+        -:   10://+++ memory bitstr +++//
+        -:   11:
+        -:   12:/* 内部类型定义 */
+        -:   13:enum {
+        -:   14:    BITSTR_MEM = 0,
+        -:   15:    BITSTR_FILE,
+        -:   16:};
+        -:   17:
+        -:   18:typedef struct {
+        -:   19:    int   type;
+        -:   20:    DWORD bitbuf;
+        -:   21:    int   bitnum;
+        -:   22:    BYTE *membuf;
+        -:   23:    int   memlen;
+        -:   24:    int   curpos;
+        -:   25:} MBITSTR;
+        -:   26:
+        -:   27:/* 函数实现 */
+function mbitstr_open called 24527 returned 100% blocks executed 75%
+    24527:   28:static void* mbitstr_open(void *buf, int len)
+        -:   29:{
+    24527:   30:    MBITSTR *context = calloc(1, sizeof(MBITSTR));
+   24527*:   31:    if (!context) return NULL;
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+    24527:   32:    context->type   = BITSTR_MEM;
+    24527:   33:    context->membuf = buf;
+    24527:   34:    context->memlen = len;
+    24527:   35:    return context;
+        -:   36:}
+        -:   37:
+function mbitstr_close called 24527 returned 100% blocks executed 75%
+    24527:   38:static int mbitstr_close(void *stream)
+        -:   39:{
+    24527:   40:    MBITSTR *context = (MBITSTR*)stream;
+   24527*:   41:    if (!context) return EOF;
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+    24527:   42:    free(context);
+    24527:   43:    return 0;
+        -:   44:}
+        -:   45:
+function mbitstr_getc called 0 returned 0% blocks executed 0%
+    #####:   46:static int mbitstr_getc(void *stream)
+        -:   47:{
+    #####:   48:    MBITSTR *context = (MBITSTR*)stream;
+    #####:   49:    if (!context || context->curpos >= context->memlen) return EOF;
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+    #####:   50:    return context->membuf[context->curpos++];
+        -:   51:}
+        -:   52:
+function mbitstr_putc called 88263229 returned 100% blocks executed 80%
+ 88263229:   53:static int mbitstr_putc(int c, void *stream)
+        -:   54:{
+ 88263229:   55:    MBITSTR *context = (MBITSTR*)stream;
+88263229*:   56:    if (!context || context->curpos >= context->memlen) return EOF;
+branch  0 taken 100% (fallthrough)
+branch  1 taken 0%
+branch  2 taken 0% (fallthrough)
+branch  3 taken 100%
+ 88263229:   57:    return (context->membuf[context->curpos++] = c);
+        -:   58:}
+        -:   59:
+function mbitstr_seek called 0 returned 0% blocks executed 0%
+    #####:   60:static int mbitstr_seek(void *stream, long offset, int origin)
+        -:   61:{
+    #####:   62:    MBITSTR *context = (MBITSTR*)stream;
+    #####:   63:    int      newpos  = 0;
+    #####:   64:    if (!context) return EOF;
+branch  0 never executed
+branch  1 never executed
+        -:   65:
+    #####:   66:    switch (origin) {
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+    #####:   67:    case SEEK_SET: newpos = offset; break;
+    #####:   68:    case SEEK_CUR: newpos = context->curpos + offset; break;
+    #####:   69:    case SEEK_END: newpos = context->memlen + offset; break;
+        -:   70:    }
+    #####:   71:    if (newpos < 0 || newpos > context->memlen) return EOF;
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+        -:   72:
+    #####:   73:    context->curpos = newpos;
+    #####:   74:    context->bitbuf = 0;
+    #####:   75:    context->bitnum = 0;
+    #####:   76:    return 0;
+        -:   77:}
+        -:   78:
+function mbitstr_tell called 24527 returned 100% blocks executed 71%
+    24527:   79:static long mbitstr_tell(void *stream)
+        -:   80:{
+    24527:   81:    MBITSTR *context = (MBITSTR*)stream;
+   24527*:   82:    if (!context) return EOF;
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+   24527*:   83:    return context->curpos > context->memlen ? EOF : context->curpos;
+branch  0 taken 100% (fallthrough)
+branch  1 taken 0%
+        -:   84:}
+        -:   85:
+function mbitstr_flush called 98108 returned 100% blocks executed 80%
+   98108*:   86:static int mbitstr_flush(void *stream) { return stream ? 0 : EOF; }
+branch  0 taken 100% (fallthrough)
+branch  1 taken 0%
+        -:   87:
+        -:   88://--- memory bitstr ---//
+        -:   89:
+        -:   90:
+        -:   91:
+        -:   92://+++ file bitstr +++//
+        -:   93:
+        -:   94:/* 内部类型定义 */
+        -:   95:typedef struct {
+        -:   96:    int   type;
+        -:   97:    DWORD bitbuf;
+        -:   98:    int   bitnum;
+        -:   99:    FILE *fp;
+        -:  100:} FBITSTR;
+        -:  101:
+        -:  102:/* 函数实现 */
+function fbitstr_open called 0 returned 0% blocks executed 0%
+    #####:  103:static void* fbitstr_open(char *file, char *mode)
+        -:  104:{
+    #####:  105:    FBITSTR *context = calloc(1, sizeof(FBITSTR));
+    #####:  106:    if (!context) return NULL;
+branch  0 never executed
+branch  1 never executed
+        -:  107:
+    #####:  108:    context->type = BITSTR_FILE;
+    #####:  109:    context->fp   = fopen(file, mode);
+call    0 never executed
+    #####:  110:    if (!context->fp) {
+branch  0 never executed
+branch  1 never executed
+    #####:  111:        free(context);
+    #####:  112:        return NULL;
+        -:  113:    }
+    #####:  114:    else return context;
+        -:  115:}
+        -:  116:
+function fbitstr_close called 0 returned 0% blocks executed 0%
+    #####:  117:static int fbitstr_close(void *stream)
+        -:  118:{
+    #####:  119:    FBITSTR *context = (FBITSTR*)stream;
+    #####:  120:    if (!context || !context->fp) return EOF;
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+    #####:  121:    fclose(context->fp);
+call    0 never executed
+    #####:  122:    free  (context);
+    #####:  123:    return 0;
+        -:  124:}
+        -:  125:
+function fbitstr_getc called 0 returned 0% blocks executed 0%
+    #####:  126:static int fbitstr_getc(void *stream)
+        -:  127:{
+    #####:  128:    FBITSTR *context = (FBITSTR*)stream;
+    #####:  129:    if (!context || !context->fp) return EOF;
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+    #####:  130:    return fgetc(context->fp);
+call    0 never executed
+        -:  131:}
+        -:  132:
+function fbitstr_putc called 0 returned 0% blocks executed 0%
+    #####:  133:static int fbitstr_putc(int c, void *stream)
+        -:  134:{
+    #####:  135:    FBITSTR *context = (FBITSTR*)stream;
+    #####:  136:    if (!context || !context->fp) return EOF;
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+    #####:  137:    return fputc(c, context->fp);
+call    0 never executed
+        -:  138:}
+        -:  139:
+function fbitstr_seek called 0 returned 0% blocks executed 0%
+    #####:  140:static int fbitstr_seek(void *stream, long offset, int origin)
+        -:  141:{
+    #####:  142:    FBITSTR *context = (FBITSTR*)stream;
+    #####:  143:    if (!context || !context->fp) return EOF;
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+    #####:  144:    context->bitbuf = 0;
+    #####:  145:    context->bitnum = 0;
+    #####:  146:    return fseek(context->fp, offset, origin);
+call    0 never executed
+        -:  147:}
+        -:  148:
+function fbitstr_tell called 0 returned 0% blocks executed 0%
+    #####:  149:static long fbitstr_tell(void *stream)
+        -:  150:{
+    #####:  151:    FBITSTR *context = (FBITSTR*)stream;
+    #####:  152:    if (!context || !context->fp) return EOF;
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+    #####:  153:    return ftell(context->fp);
+call    0 never executed
+        -:  154:}
+        -:  155:
+function fbitstr_flush called 0 returned 0% blocks executed 0%
+    #####:  156:static int fbitstr_flush(void *stream)
+        -:  157:{
+    #####:  158:    FBITSTR *context = (FBITSTR*)stream;
+    #####:  159:    if (!context || !context->fp) return EOF;
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+        -:  160:
+    #####:  161:    if (context->bitnum != 0) {
+branch  0 never executed
+branch  1 never executed
+    #####:  162:        if (EOF == fputc(context->bitbuf & 0xff, context->fp)) {
+call    0 never executed
+branch  1 never executed
+branch  2 never executed
+    #####:  163:            return EOF;
+        -:  164:        }
+    #####:  165:        context->bitbuf = 0;
+    #####:  166:        context->bitnum = 0;
+        -:  167:    }
+    #####:  168:    return fflush(context->fp);
+call    0 never executed
+        -:  169:}
+        -:  170:
+        -:  171://--- file bitstr --//
+        -:  172:
+        -:  173:
+        -:  174:
+        -:  175:// 函数实现
+function bitstr_open called 24527 returned 100% blocks executed 67%
+    24527:  176:void* bitstr_open(void *fnamebuf, char *fmode, int bufsize)
+        -:  177:{
+    24527:  178:    if (strcmp(fmode, "mem") == 0) {
+branch  0 taken 100% (fallthrough)
+branch  1 taken 0%
+    24527:  179:        return mbitstr_open((void*)fnamebuf, bufsize);
+call    0 returned 100%
+        -:  180:    } else {
+    #####:  181:        return fbitstr_open((char*)fnamebuf, fmode);
+call    0 never executed
+        -:  182:    }
+        -:  183:}
+        -:  184:
+function bitstr_close called 24527 returned 100% blocks executed 60%
+    24527:  185:int bitstr_close(void *stream)
+        -:  186:{
+    24527:  187:    int type = *(int*)stream;
+    24527:  188:    switch (type) {
+branch  0 taken 100%
+branch  1 taken 0%
+branch  2 taken 0%
+    24527:  189:    case BITSTR_MEM : return mbitstr_close(stream);
+call    0 returned 100%
+    #####:  190:    case BITSTR_FILE: return fbitstr_close(stream);
+call    0 never executed
+        -:  191:    }
+    #####:  192:    return EOF;
+        -:  193:}
+        -:  194:
+function bitstr_getc called 0 returned 0% blocks executed 0%
+    #####:  195:int bitstr_getc(void *stream)
+        -:  196:{
+    #####:  197:    int type = *(int*)stream;
+    #####:  198:    switch (type) {
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+    #####:  199:    case BITSTR_MEM : return mbitstr_getc(stream);
+call    0 never executed
+    #####:  200:    case BITSTR_FILE: return fbitstr_getc(stream);
+call    0 never executed
+        -:  201:    }
+    #####:  202:    return EOF;
+        -:  203:}
+        -:  204:
+function bitstr_putc called 88263229 returned 100% blocks executed 60%
+ 88263229:  205:int bitstr_putc(int c, void *stream)
+        -:  206:{
+ 88263229:  207:    int type = *(int*)stream;
+ 88263229:  208:    switch (type) {
+branch  0 taken 100%
+branch  1 taken 0%
+branch  2 taken 0%
+ 88263229:  209:    case BITSTR_MEM : return mbitstr_putc(c, stream);
+call    0 returned 100%
+    #####:  210:    case BITSTR_FILE: return fbitstr_putc(c, stream);
+call    0 never executed
+        -:  211:    }
+    #####:  212:    return EOF;
+        -:  213:}
+        -:  214:
+function bitstr_seek called 0 returned 0% blocks executed 0%
+    #####:  215:int bitstr_seek(void *stream, long offset, int origin)
+        -:  216:{
+    #####:  217:    int type = *(int*)stream;
+    #####:  218:    switch (type) {
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+    #####:  219:    case BITSTR_MEM : return mbitstr_seek(stream, offset, origin);
+call    0 never executed
+    #####:  220:    case BITSTR_FILE: return fbitstr_seek(stream, offset, origin);
+call    0 never executed
+        -:  221:    }
+    #####:  222:    return EOF;
+        -:  223:}
+        -:  224:
+function bitstr_tell called 24527 returned 100% blocks executed 57%
+    24527:  225:long bitstr_tell(void *stream)
+        -:  226:{
+    24527:  227:    int type = *(int*)stream;
+   24527*:  228:    if (!stream) return EOF;
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+    24527:  229:    switch (type) {
+branch  0 taken 100%
+branch  1 taken 0%
+branch  2 taken 0%
+    24527:  230:    case BITSTR_MEM : return mbitstr_tell(stream);
+call    0 returned 100%
+    #####:  231:    case BITSTR_FILE: return fbitstr_tell(stream);
+call    0 never executed
+        -:  232:    }
+    #####:  233:    return EOF;
+        -:  234:}
+        -:  235:
+function bitstr_getb called 0 returned 0% blocks executed 0%
+    #####:  236:int bitstr_getb(void *stream)
+        -:  237:{
+    #####:  238:    int bit, flag = 0;
+    #####:  239:    FBITSTR *context = (FBITSTR*)stream;
+    #####:  240:    if (!context) return EOF;
+branch  0 never executed
+branch  1 never executed
+        -:  241:
+    #####:  242:    if (context->bitnum == 0) {
+branch  0 never executed
+branch  1 never executed
+        -:  243:#if USE_JPEG_BITSTR
+        -:  244:        do {
+    #####:  245:            context->bitbuf = bitstr_getc(stream);
+call    0 never executed
+    #####:  246:            if (context->bitbuf == 0xff) flag = 1;
+branch  0 never executed
+branch  1 never executed
+    #####:  247:        } while (context->bitbuf != EOF && context->bitbuf == 0xff);
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+    #####:  248:        if (flag && context->bitbuf == 0) context->bitbuf = 0xff;
+branch  0 never executed
+branch  1 never executed
+branch  2 never executed
+branch  3 never executed
+        -:  249:#else
+        -:  250:        context->bitbuf = bitstr_getc(stream);
+        -:  251:#endif
+    #####:  252:        context->bitnum = 8;
+    #####:  253:        if (context->bitbuf == EOF) {
+branch  0 never executed
+branch  1 never executed
+    #####:  254:            return EOF;
+        -:  255:        }
+        -:  256:    }
+        -:  257:
+    #####:  258:    bit = (context->bitbuf >> 7) & (1 << 0);
+    #####:  259:    context->bitbuf <<= 1;
+    #####:  260:    context->bitnum--;
+    #####:  261:    return bit;
+        -:  262:}
+        -:  263:
+function bitstr_putb called 688417208 returned 100% blocks executed 77%
+688417208:  264:int bitstr_putb(int b, void *stream)
+        -:  265:{
+688417208:  266:    FBITSTR *context = (FBITSTR*)stream;
+688417208*:  267:    if (!context) return EOF;
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+        -:  268:
+688417208:  269:    context->bitbuf <<= 1;
+688417208:  270:    context->bitbuf  |= b;
+688417208:  271:    context->bitnum++;
+        -:  272:
+688417208:  273:    if (context->bitnum == 8) {
+branch  0 taken 12% (fallthrough)
+branch  1 taken 88%
+ 86052151:  274:        if (EOF == bitstr_putc(context->bitbuf & 0xff, stream)) {
+call    0 returned 100%
+branch  1 taken 0% (fallthrough)
+branch  2 taken 100%
+    #####:  275:            return EOF;
+        -:  276:        }
+        -:  277:
+        -:  278:#if USE_JPEG_BITSTR
+ 86052151:  279:        if (context->bitbuf == 0xff) {
+branch  0 taken 3% (fallthrough)
+branch  1 taken 97%
+ 2211078*:  280:            if (EOF == bitstr_putc(0x00, stream)) return EOF;
+call    0 returned 100%
+branch  1 taken 0% (fallthrough)
+branch  2 taken 100%
+        -:  281:        }
+        -:  282:#endif
+ 86052151:  283:        context->bitbuf = 0;
+ 86052151:  284:        context->bitnum = 0;
+        -:  285:    }
+        -:  286:
+688417208:  287:    return b;
+        -:  288:}
+        -:  289:
+function bitstr_get_bits called 0 returned 0% blocks executed 0%
+    #####:  290:int bitstr_get_bits(void *stream, int n)
+        -:  291:{
+    #####:  292:    int buf = 0;
+    #####:  293:    while (n--) {
+branch  0 never executed
+branch  1 never executed
+    #####:  294:        buf <<= 1;
+    #####:  295:        buf  |= bitstr_getb(stream);
+call    0 never executed
+        -:  296:    }
+    #####:  297:    return buf;
+        -:  298:}
+        -:  299:
+function bitstr_put_bits called 259006798 returned 100% blocks executed 88%
+259006798:  300:int bitstr_put_bits(void *stream, int bits, int n)
+        -:  301:{
+259006798:  302:    unsigned buf = bits << (32 - n);
+947424006:  303:    while (n--) {
+branch  0 taken 73%
+branch  1 taken 27% (fallthrough)
+688417208:  304:        if (EOF == bitstr_putb(buf >> 31, stream)) {
+call    0 returned 100%
+branch  1 taken 0% (fallthrough)
+branch  2 taken 100%
+    #####:  305:            return EOF;
+        -:  306:        }
+688417208:  307:        buf <<= 1;
+        -:  308:    }
+259006798:  309:    return bits;
+        -:  310:}
+        -:  311:
+function bitstr_flush called 98108 returned 100% blocks executed 71%
+    98108:  312:int bitstr_flush(void *stream, int flag)
+        -:  313:{
+    98108:  314:    FBITSTR *context = (FBITSTR*)stream;
+   98108*:  315:    if (!context) return EOF;
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+        -:  316:
+        -:  317:    // output
+   98108*:  318:    bitstr_put_bits(stream, flag ? -1 : 0, context->bitnum ? 8 - context->bitnum : 0);
+branch  0 taken 22% (fallthrough)
+branch  1 taken 78%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0%
+call    4 returned 100%
+        -:  319:
+        -:  320:    // flush
+    98108:  321:    switch (context->type) {
+branch  0 taken 100%
+branch  1 taken 0%
+branch  2 taken 0%
+    98108:  322:    case BITSTR_MEM : return mbitstr_flush(stream);
+call    0 returned 100%
+    #####:  323:    case BITSTR_FILE: return fbitstr_flush(stream);
+call    0 never executed
+        -:  324:    }
+    #####:  325:    return EOF;
+        -:  326:}
+        -:  327:
+        -:  328:
+        -:  329:
+        -:  330:
+        -:  331:
+        -:  332:
+        -:  333:
+        -:  334:
+        -:  335:

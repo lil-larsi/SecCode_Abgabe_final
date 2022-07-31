@@ -1,0 +1,4 @@
+# environment variables:
+AFL_KILL_SIGNAL=9
+# command line:
+'/home/lars/Projektobjekt/AFLplusplus/afl-fuzz' '-i' 'inputbmp++' '-o' 'outputbmp++' '-f' 'test.bmp' './ffjpeg' '-e' 'jpeg-jpg'

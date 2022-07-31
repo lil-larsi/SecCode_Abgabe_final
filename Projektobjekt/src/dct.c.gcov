@@ -1,0 +1,872 @@
+        -:    0:Source:dct.c
+        -:    0:Graph:dct.gcno
+        -:    0:Data:dct.gcda
+        -:    0:Runs:24527
+        -:    1:/* 包含头文件 */
+        -:    2:#include "stdefine.h"
+        -:    3:#include "dct.h"
+        -:    4:
+        -:    5:#if 1 /* 快速的整数运算版本 */
+        -:    6:/* 内部常量定义 */
+        -:    7:#define DCTSIZE  8
+        -:    8:
+        -:    9:/* 内部全局变量定义 */
+        -:   10:static const float AAN_DCT_FACTOR[DCTSIZE] = {
+        -:   11:    1.0f, 1.387039845f, 1.306562965f, 1.175875602f,
+        -:   12:    1.0f, 0.785694958f, 0.541196100f, 0.275899379f,
+        -:   13:};
+        -:   14:
+        -:   15:static int g_inited         =  0;
+        -:   16:static int g_fdctfactor[64] = {0};
+        -:   17:static int g_idctfactor[64] = {0};
+        -:   18:
+function init_dct_module called 24527 returned 100% blocks executed 95%
+    24527:   19:void init_dct_module(void)
+        -:   20:{
+        -:   21:    int   i, j;
+        -:   22:    float factor[64];
+        -:   23:
+        -:   24:    // check inited
+   24527*:   25:    if (g_inited) return;
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+    24527:   26:    else g_inited = 1;
+        -:   27:
+        -:   28:    // fdct factor
+   220743:   29:    for (i=0; i<DCTSIZE; i++) {
+branch  0 taken 89%
+branch  1 taken 11% (fallthrough)
+  1765944:   30:        for (j=0; j<DCTSIZE; j++) {
+branch  0 taken 89%
+branch  1 taken 11% (fallthrough)
+  1569728:   31:            factor[i * 8 + j] = 1.0f / (AAN_DCT_FACTOR[i] * AAN_DCT_FACTOR[j] * 8);
+        -:   32:        }
+        -:   33:    }
+  1594255:   34:    for (i=0; i<64; i++) {
+branch  0 taken 98%
+branch  1 taken 2% (fallthrough)
+  1569728:   35:        g_fdctfactor[i] = FLOAT2FIX(factor[i]);
+        -:   36:    }
+        -:   37:
+        -:   38:    // idct factor
+   220743:   39:    for (i=0; i<DCTSIZE; i++) {
+branch  0 taken 89%
+branch  1 taken 11% (fallthrough)
+  1765944:   40:        for (j=0; j<DCTSIZE; j++) {
+branch  0 taken 89%
+branch  1 taken 11% (fallthrough)
+  1569728:   41:            factor[i * 8 + j] = 1.0f * (AAN_DCT_FACTOR[i] * AAN_DCT_FACTOR[j] / 8);
+        -:   42:        }
+        -:   43:    }
+  1594255:   44:    for (i=0; i<64; i++) {
+branch  0 taken 98%
+branch  1 taken 2% (fallthrough)
+  1569728:   45:        g_idctfactor[i] = FLOAT2FIX(factor[i]);
+        -:   46:    }
+        -:   47:}
+        -:   48:
+function init_fdct_ftab called 0 returned 0% blocks executed 0%
+    #####:   49:void init_fdct_ftab(int *ftab, int *qtab)
+        -:   50:{
+        -:   51:    int   i, j;
+        -:   52:    float factor[64];
+    #####:   53:    for (i=0; i<8; i++) {
+branch  0 never executed
+branch  1 never executed
+    #####:   54:        for (j=0; j<8; j++) {
+branch  0 never executed
+branch  1 never executed
+    #####:   55:            factor[i * 8 + j] = 1.0f / (AAN_DCT_FACTOR[i] * AAN_DCT_FACTOR[j] * 8);
+        -:   56:        }
+        -:   57:    }
+    #####:   58:    for (i=0; i<64; i++) {
+branch  0 never executed
+branch  1 never executed
+    #####:   59:        ftab[i] = FLOAT2FIX(factor[i] / qtab[i]);
+        -:   60:    }
+    #####:   61:}
+        -:   62:
+function init_idct_ftab called 0 returned 0% blocks executed 0%
+    #####:   63:void init_idct_ftab(int *ftab, int *qtab)
+        -:   64:{
+        -:   65:    int   i, j;
+        -:   66:    float factor[64];
+    #####:   67:    for (i=0; i<8; i++) {
+branch  0 never executed
+branch  1 never executed
+    #####:   68:        for (j=0; j<8; j++) {
+branch  0 never executed
+branch  1 never executed
+    #####:   69:            factor[i * 8 + j] = 1.0f * (AAN_DCT_FACTOR[i] * AAN_DCT_FACTOR[j] / 8);
+        -:   70:        }
+        -:   71:    }
+    #####:   72:    for (i=0; i<64; i++) {
+branch  0 never executed
+branch  1 never executed
+    #####:   73:        ftab[i] = FLOAT2FIX(factor[i] * qtab[i]);
+        -:   74:    }
+    #####:   75:}
+        -:   76:
+        -:   77:/* 函数实现 */
+function fdct2d8x8 called 39909774 returned 100% blocks executed 92%
+ 39909774:   78:void fdct2d8x8(int *data, int *ftab)
+        -:   79:{
+        -:   80:    int tmp0,  tmp1,  tmp2,  tmp3;
+        -:   81:    int tmp4,  tmp5,  tmp6,  tmp7;
+        -:   82:    int tmp10, tmp11, tmp12, tmp13;
+        -:   83:    int z1, z2, z3, z4, z5, z11, z13;
+        -:   84:    int *dataptr;
+        -:   85:    int ctr;
+        -:   86:
+        -:   87:    /* Pass 1: process rows. */
+ 39909774:   88:    dataptr = data;
+359187966:   89:    for (ctr=0; ctr<DCTSIZE; ctr++)
+branch  0 taken 89%
+branch  1 taken 11% (fallthrough)
+        -:   90:    {
+319278192:   91:        tmp0 = dataptr[0] + dataptr[7];
+319278192:   92:        tmp7 = dataptr[0] - dataptr[7];
+319278192:   93:        tmp1 = dataptr[1] + dataptr[6];
+319278192:   94:        tmp6 = dataptr[1] - dataptr[6];
+319278192:   95:        tmp2 = dataptr[2] + dataptr[5];
+319278192:   96:        tmp5 = dataptr[2] - dataptr[5];
+319278192:   97:        tmp3 = dataptr[3] + dataptr[4];
+319278192:   98:        tmp4 = dataptr[3] - dataptr[4];
+        -:   99:
+        -:  100:        /* Even part */
+319278192:  101:        tmp10 = tmp0 + tmp3;  /* phase 2 */
+319278192:  102:        tmp13 = tmp0 - tmp3;
+319278192:  103:        tmp11 = tmp1 + tmp2;
+319278192:  104:        tmp12 = tmp1 - tmp2;
+        -:  105:
+319278192:  106:        dataptr[0] = tmp10 + tmp11;  /* phase 3 */
+319278192:  107:        dataptr[4] = tmp10 - tmp11;
+        -:  108:
+319278192:  109:        z1 = (tmp12 + tmp13) * FLOAT2FIX(0.707106781f) >> FIXQ; /* c4 */
+319278192:  110:        dataptr[2] = tmp13 + z1;  /* phase 5 */
+319278192:  111:        dataptr[6] = tmp13 - z1;
+        -:  112:
+        -:  113:        /* Odd part */
+319278192:  114:        tmp10 = tmp4 + tmp5;  /* phase 2 */
+319278192:  115:        tmp11 = tmp5 + tmp6;
+319278192:  116:        tmp12 = tmp6 + tmp7;
+        -:  117:
+        -:  118:        /* The rotator is modified from fig 4-8 to avoid extra negations. */
+319278192:  119:        z5 = (tmp10 - tmp12) * FLOAT2FIX(0.382683433f) >> FIXQ;  /* c6 */
+319278192:  120:        z2 = (FLOAT2FIX(0.541196100f) * tmp10 >> FIXQ) + z5;     /* c2-c6 */
+319278192:  121:        z4 = (FLOAT2FIX(1.306562965f) * tmp12 >> FIXQ) + z5;     /* c2+c6 */
+319278192:  122:        z3 = tmp11 * FLOAT2FIX(0.707106781f) >> FIXQ;            /* c4 */
+        -:  123:
+319278192:  124:        z11 = tmp7 + z3;        /* phase 5 */
+319278192:  125:        z13 = tmp7 - z3;
+        -:  126:
+319278192:  127:        dataptr[5] = z13 + z2;  /* phase 6 */
+319278192:  128:        dataptr[3] = z13 - z2;
+319278192:  129:        dataptr[1] = z11 + z4;
+319278192:  130:        dataptr[7] = z11 - z4;
+        -:  131:
+319278192:  132:        dataptr += DCTSIZE;     /* advance pointer to next row */
+        -:  133:    }
+        -:  134:
+        -:  135:    /* Pass 2: process columns. */
+ 39909774:  136:    dataptr = data;
+359187966:  137:    for (ctr=0; ctr<DCTSIZE; ctr++)
+branch  0 taken 89%
+branch  1 taken 11% (fallthrough)
+        -:  138:    {
+319278192:  139:        tmp0 = dataptr[DCTSIZE * 0] + dataptr[DCTSIZE * 7];
+319278192:  140:        tmp7 = dataptr[DCTSIZE * 0] - dataptr[DCTSIZE * 7];
+319278192:  141:        tmp1 = dataptr[DCTSIZE * 1] + dataptr[DCTSIZE * 6];
+319278192:  142:        tmp6 = dataptr[DCTSIZE * 1] - dataptr[DCTSIZE * 6];
+319278192:  143:        tmp2 = dataptr[DCTSIZE * 2] + dataptr[DCTSIZE * 5];
+319278192:  144:        tmp5 = dataptr[DCTSIZE * 2] - dataptr[DCTSIZE * 5];
+319278192:  145:        tmp3 = dataptr[DCTSIZE * 3] + dataptr[DCTSIZE * 4];
+319278192:  146:        tmp4 = dataptr[DCTSIZE * 3] - dataptr[DCTSIZE * 4];
+        -:  147:
+        -:  148:        /* Even part */
+319278192:  149:        tmp10 = tmp0 + tmp3;  /* phase 2 */
+319278192:  150:        tmp13 = tmp0 - tmp3;
+319278192:  151:        tmp11 = tmp1 + tmp2;
+319278192:  152:        tmp12 = tmp1 - tmp2;
+        -:  153:
+319278192:  154:        dataptr[DCTSIZE * 0] = tmp10 + tmp11;  /* phase 3 */
+319278192:  155:        dataptr[DCTSIZE * 4] = tmp10 - tmp11;
+        -:  156:
+319278192:  157:        z1 = (tmp12 + tmp13) * FLOAT2FIX(0.707106781f) >> FIXQ; /* c4 */
+319278192:  158:        dataptr[DCTSIZE * 2] = tmp13 + z1;  /* phase 5 */
+319278192:  159:        dataptr[DCTSIZE * 6] = tmp13 - z1;
+        -:  160:
+        -:  161:        /* Odd part */
+319278192:  162:        tmp10 = tmp4 + tmp5;  /* phase 2 */
+319278192:  163:        tmp11 = tmp5 + tmp6;
+319278192:  164:        tmp12 = tmp6 + tmp7;
+        -:  165:
+        -:  166:        /* The rotator is modified from fig 4-8 to avoid extra negations. */
+319278192:  167:        z5 = (tmp10 - tmp12) * FLOAT2FIX(0.382683433f) >> FIXQ;  /* c6 */
+319278192:  168:        z2 = (FLOAT2FIX(0.541196100f) * tmp10 >> FIXQ) + z5;     /* c2-c6 */
+319278192:  169:        z4 = (FLOAT2FIX(1.306562965f) * tmp12 >> FIXQ) + z5;     /* c2+c6 */
+319278192:  170:        z3 = tmp11 * FLOAT2FIX(0.707106781f) >> FIXQ;            /* c4 */
+        -:  171:
+319278192:  172:        z11 = tmp7 + z3;  /* phase 5 */
+319278192:  173:        z13 = tmp7 - z3;
+        -:  174:
+319278192:  175:        dataptr[DCTSIZE * 5] = z13 + z2; /* phase 6 */
+319278192:  176:        dataptr[DCTSIZE * 3] = z13 - z2;
+319278192:  177:        dataptr[DCTSIZE * 1] = z11 + z4;
+319278192:  178:        dataptr[DCTSIZE * 7] = z11 - z4;
+        -:  179:
+319278192:  180:        dataptr++;  /* advance pointer to next column */
+        -:  181:    }
+        -:  182:
+39909774*:  183:    ftab = ftab ? ftab : g_fdctfactor;
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+2594135310:  184:    for (ctr=0; ctr<64; ctr++) {
+branch  0 taken 98%
+branch  1 taken 2% (fallthrough)
+2554225536:  185:        data[ctr]  *= ftab[ctr];
+2554225536:  186:        data[ctr] >>= FIXQ + 2;
+        -:  187:    }
+ 39909774:  188:}
+        -:  189:
+function idct2d8x8 called 0 returned 0% blocks executed 0%
+    #####:  190:void idct2d8x8(int *data, int *ftab)
+        -:  191:{
+        -:  192:    int  tmp0,  tmp1,  tmp2,  tmp3;
+        -:  193:    int  tmp4,  tmp5,  tmp6,  tmp7;
+        -:  194:    int  tmp10, tmp11, tmp12, tmp13;
+        -:  195:    int  z5, z10, z11, z12, z13;
+        -:  196:    int *dataptr;
+        -:  197:    int  ctr;
+        -:  198:
+    #####:  199:    ftab = ftab ? ftab : g_idctfactor;
+branch  0 never executed
+branch  1 never executed
+    #####:  200:    for (ctr=0; ctr<64; ctr++) {
+branch  0 never executed
+branch  1 never executed
+    #####:  201:        data[ctr] *= ftab[ctr];
+        -:  202:    }
+        -:  203:
+        -:  204:    /* Pass 1: process rows. */
+    #####:  205:    dataptr = data;
+    #####:  206:    for (ctr=0; ctr<DCTSIZE; ctr++)
+branch  0 never executed
+branch  1 never executed
+        -:  207:    {
+    #####:  208:        if ( dataptr[1] + dataptr[2] + dataptr[3] + dataptr[4]
+    #####:  209:           + dataptr[5] + dataptr[6] + dataptr[7] == 0 )
+branch  0 never executed
+branch  1 never executed
+        -:  210:        {
+    #####:  211:            dataptr[1] = dataptr[0];
+    #####:  212:            dataptr[2] = dataptr[0];
+    #####:  213:            dataptr[3] = dataptr[0];
+    #####:  214:            dataptr[4] = dataptr[0];
+    #####:  215:            dataptr[5] = dataptr[0];
+    #####:  216:            dataptr[6] = dataptr[0];
+    #####:  217:            dataptr[7] = dataptr[0];
+        -:  218:
+    #####:  219:            dataptr += DCTSIZE;
+    #####:  220:            continue;
+        -:  221:        }
+        -:  222:
+        -:  223:        /* Even part */
+    #####:  224:        tmp0 = dataptr[0];
+    #####:  225:        tmp1 = dataptr[2];
+    #####:  226:        tmp2 = dataptr[4];
+    #####:  227:        tmp3 = dataptr[6];
+        -:  228:
+    #####:  229:        tmp10 = tmp0 + tmp2;    /* phase 3 */
+    #####:  230:        tmp11 = tmp0 - tmp2;
+        -:  231:
+    #####:  232:        tmp13  = tmp1 + tmp3;   /* phases 5-3 */
+    #####:  233:        tmp12  = tmp1 - tmp3;   /* 2 * c4 */
+    #####:  234:        tmp12 *= FLOAT2FIX(1.414213562f); tmp12 >>= FIXQ;
+    #####:  235:        tmp12 -= tmp13;
+        -:  236:
+    #####:  237:        tmp0 = tmp10 + tmp13;   /* phase 2 */
+    #####:  238:        tmp3 = tmp10 - tmp13;
+    #####:  239:        tmp1 = tmp11 + tmp12;
+    #####:  240:        tmp2 = tmp11 - tmp12;
+        -:  241:
+        -:  242:        /* Odd part */
+    #####:  243:        tmp4 = dataptr[1];
+    #####:  244:        tmp5 = dataptr[3];
+    #####:  245:        tmp6 = dataptr[5];
+    #####:  246:        tmp7 = dataptr[7];
+        -:  247:
+    #####:  248:        z13 = tmp6 + tmp5;    /* phase 6 */
+    #####:  249:        z10 = tmp6 - tmp5;
+    #####:  250:        z11 = tmp4 + tmp7;
+    #####:  251:        z12 = tmp4 - tmp7;
+        -:  252:
+    #####:  253:        tmp7   = z11 + z13;   /* phase 5 */
+    #####:  254:        tmp11  = z11 - z13;   /* 2 * c4 */
+    #####:  255:        tmp11 *= FLOAT2FIX(1.414213562f); tmp11 >>= FIXQ;
+        -:  256:
+    #####:  257:        z5 = (z10 + z12) * FLOAT2FIX(1.847759065f) >> FIXQ;  /*  2 * c2 */
+    #####:  258:        tmp10 = (FLOAT2FIX( 1.082392200f) * z12 >> FIXQ) - z5; /*  2 * (c2 - c6) */
+    #####:  259:        tmp12 = (FLOAT2FIX(-2.613125930f) * z10 >> FIXQ) + z5; /* -2 * (c2 + c6) */
+        -:  260:
+    #####:  261:        tmp6 = tmp12 - tmp7;    /* phase 2 */
+    #####:  262:        tmp5 = tmp11 - tmp6;
+    #####:  263:        tmp4 = tmp10 + tmp5;
+        -:  264:
+    #####:  265:        dataptr[0] = tmp0 + tmp7;
+    #####:  266:        dataptr[7] = tmp0 - tmp7;
+    #####:  267:        dataptr[1] = tmp1 + tmp6;
+    #####:  268:        dataptr[6] = tmp1 - tmp6;
+    #####:  269:        dataptr[2] = tmp2 + tmp5;
+    #####:  270:        dataptr[5] = tmp2 - tmp5;
+    #####:  271:        dataptr[4] = tmp3 + tmp4;
+    #####:  272:        dataptr[3] = tmp3 - tmp4;
+        -:  273:
+    #####:  274:        dataptr += DCTSIZE;
+        -:  275:    }
+        -:  276:
+        -:  277:    /* Pass 2: process columns. */
+    #####:  278:    dataptr = data;
+    #####:  279:    for (ctr=0; ctr<DCTSIZE; ctr++)
+branch  0 never executed
+branch  1 never executed
+        -:  280:    {
+        -:  281:        /* Even part */
+    #####:  282:        tmp0 = dataptr[DCTSIZE * 0];
+    #####:  283:        tmp1 = dataptr[DCTSIZE * 2];
+    #####:  284:        tmp2 = dataptr[DCTSIZE * 4];
+    #####:  285:        tmp3 = dataptr[DCTSIZE * 6];
+        -:  286:
+    #####:  287:        tmp10 = tmp0 + tmp2;    /* phase 3 */
+    #####:  288:        tmp11 = tmp0 - tmp2;
+        -:  289:
+    #####:  290:        tmp13  = tmp1 + tmp3;   /* phases 5-3 */
+    #####:  291:        tmp12  = tmp1 - tmp3;   /* 2 * c4 */
+    #####:  292:        tmp12 *= FLOAT2FIX(1.414213562f); tmp12 >>= FIXQ;
+    #####:  293:        tmp12 -= tmp13;
+        -:  294:
+    #####:  295:        tmp0 = tmp10 + tmp13;   /* phase 2 */
+    #####:  296:        tmp3 = tmp10 - tmp13;
+    #####:  297:        tmp1 = tmp11 + tmp12;
+    #####:  298:        tmp2 = tmp11 - tmp12;
+        -:  299:
+        -:  300:        /* Odd part */
+    #####:  301:        tmp4 = dataptr[DCTSIZE * 1];
+    #####:  302:        tmp5 = dataptr[DCTSIZE * 3];
+    #####:  303:        tmp6 = dataptr[DCTSIZE * 5];
+    #####:  304:        tmp7 = dataptr[DCTSIZE * 7];
+        -:  305:
+    #####:  306:        z13 = tmp6 + tmp5;    /* phase 6 */
+    #####:  307:        z10 = tmp6 - tmp5;
+    #####:  308:        z11 = tmp4 + tmp7;
+    #####:  309:        z12 = tmp4 - tmp7;
+        -:  310:
+    #####:  311:        tmp7   = z11 + z13;   /* phase 5 */
+    #####:  312:        tmp11  = z11 - z13;   /* 2 * c4 */
+    #####:  313:        tmp11 *= FLOAT2FIX(1.414213562f); tmp11 >>= FIXQ;
+        -:  314:
+    #####:  315:        z5 = (z10 + z12) * FLOAT2FIX(1.847759065f) >> FIXQ;  /*  2 * c2 */
+    #####:  316:        tmp10 = (FLOAT2FIX( 1.082392200f) * z12 >> FIXQ) - z5; /*  2 * (c2 - c6) */
+    #####:  317:        tmp12 = (FLOAT2FIX(-2.613125930f) * z10 >> FIXQ) + z5; /* -2 * (c2 + c6) */
+        -:  318:
+    #####:  319:        tmp6 = tmp12 - tmp7;    /* phase 2 */
+    #####:  320:        tmp5 = tmp11 - tmp6;
+    #####:  321:        tmp4 = tmp10 + tmp5;
+        -:  322:
+    #####:  323:        dataptr[DCTSIZE * 0] = tmp0 + tmp7;
+    #####:  324:        dataptr[DCTSIZE * 7] = tmp0 - tmp7;
+    #####:  325:        dataptr[DCTSIZE * 1] = tmp1 + tmp6;
+    #####:  326:        dataptr[DCTSIZE * 6] = tmp1 - tmp6;
+    #####:  327:        dataptr[DCTSIZE * 2] = tmp2 + tmp5;
+    #####:  328:        dataptr[DCTSIZE * 5] = tmp2 - tmp5;
+    #####:  329:        dataptr[DCTSIZE * 4] = tmp3 + tmp4;
+    #####:  330:        dataptr[DCTSIZE * 3] = tmp3 - tmp4;
+        -:  331:
+    #####:  332:        dataptr++; /* advance pointers to next column */
+        -:  333:    }
+    #####:  334:}
+        -:  335:#endif
+        -:  336:
+        -:  337:#if 0 /* 快速的浮点数运算版本 */
+        -:  338:
+        -:  339:/* 内部常量定义 */
+        -:  340:#define DCTSIZE  8
+        -:  341:
+        -:  342:/* 内部全局变量定义 */
+        -:  343:static float aandctfactor[DCTSIZE] = {
+        -:  344:    1.0f, 1.387039845f, 1.306562965f, 1.175875602f,
+        -:  345:    1.0f, 0.785694958f, 0.541196100f, 0.275899379f,
+        -:  346:};
+        -:  347:
+        -:  348:static float dctfactor[64] = {0};
+        -:  349:
+        -:  350:/* 内部函数实现 */
+        -:  351:static initdctfactor()
+        -:  352:{
+        -:  353:    int i, j;
+        -:  354:    for (i=0; i<DCTSIZE; i++)
+        -:  355:        for (j=0; j<DCTSIZE; j++)
+        -:  356:            dctfactor[i * 8 + j] = aandctfactor[i] * aandctfactor[j];
+        -:  357:}
+        -:  358:
+        -:  359:/* 函数实现 */
+        -:  360:void fdct2d8x8(float *data)
+        -:  361:{
+        -:  362:    float tmp0, tmp1, tmp2, tmp3;
+        -:  363:    float tmp4, tmp5, tmp6, tmp7;
+        -:  364:    float tmp10, tmp11, tmp12, tmp13;
+        -:  365:    float z1, z2, z3, z4, z5, z11, z13;
+        -:  366:    float *dataptr;
+        -:  367:    int   ctr;
+        -:  368:
+        -:  369:    /* Pass 1: process rows. */
+        -:  370:    dataptr = data;
+        -:  371:    for (ctr=0; ctr<DCTSIZE; ctr++)
+        -:  372:    {
+        -:  373:        tmp0 = dataptr[0] + dataptr[7];
+        -:  374:        tmp7 = dataptr[0] - dataptr[7];
+        -:  375:        tmp1 = dataptr[1] + dataptr[6];
+        -:  376:        tmp6 = dataptr[1] - dataptr[6];
+        -:  377:        tmp2 = dataptr[2] + dataptr[5];
+        -:  378:        tmp5 = dataptr[2] - dataptr[5];
+        -:  379:        tmp3 = dataptr[3] + dataptr[4];
+        -:  380:        tmp4 = dataptr[3] - dataptr[4];
+        -:  381:
+        -:  382:        /* Even part */
+        -:  383:        tmp10 = tmp0 + tmp3;  /* phase 2 */
+        -:  384:        tmp13 = tmp0 - tmp3;
+        -:  385:        tmp11 = tmp1 + tmp2;
+        -:  386:        tmp12 = tmp1 - tmp2;
+        -:  387:
+        -:  388:        dataptr[0] = tmp10 + tmp11;  /* phase 3 */
+        -:  389:        dataptr[4] = tmp10 - tmp11;
+        -:  390:
+        -:  391:        z1 = (tmp12 + tmp13) * 0.707106781f; /* c4 */
+        -:  392:        dataptr[2] = tmp13 + z1;  /* phase 5 */
+        -:  393:        dataptr[6] = tmp13 - z1;
+        -:  394:
+        -:  395:        /* Odd part */
+        -:  396:        tmp10 = tmp4 + tmp5;  /* phase 2 */
+        -:  397:        tmp11 = tmp5 + tmp6;
+        -:  398:        tmp12 = tmp6 + tmp7;
+        -:  399:
+        -:  400:        /* The rotator is modified from fig 4-8 to avoid extra negations. */
+        -:  401:        z5 = (tmp10 - tmp12) * 0.382683433f; /* c6 */
+        -:  402:        z2 = 0.541196100f * tmp10 + z5;      /* c2-c6 */
+        -:  403:        z4 = 1.306562965f * tmp12 + z5;      /* c2+c6 */
+        -:  404:        z3 = tmp11 * 0.707106781f;           /* c4 */
+        -:  405:
+        -:  406:        z11 = tmp7 + z3;        /* phase 5 */
+        -:  407:        z13 = tmp7 - z3;
+        -:  408:
+        -:  409:        dataptr[5] = z13 + z2;  /* phase 6 */
+        -:  410:        dataptr[3] = z13 - z2;
+        -:  411:        dataptr[1] = z11 + z4;
+        -:  412:        dataptr[7] = z11 - z4;
+        -:  413:
+        -:  414:        dataptr += DCTSIZE;     /* advance pointer to next row */
+        -:  415:    }
+        -:  416:
+        -:  417:    /* Pass 2: process columns. */
+        -:  418:    dataptr = data;
+        -:  419:    for (ctr=0; ctr<DCTSIZE; ctr++)
+        -:  420:    {
+        -:  421:        tmp0 = dataptr[DCTSIZE * 0] + dataptr[DCTSIZE * 7];
+        -:  422:        tmp7 = dataptr[DCTSIZE * 0] - dataptr[DCTSIZE * 7];
+        -:  423:        tmp1 = dataptr[DCTSIZE * 1] + dataptr[DCTSIZE * 6];
+        -:  424:        tmp6 = dataptr[DCTSIZE * 1] - dataptr[DCTSIZE * 6];
+        -:  425:        tmp2 = dataptr[DCTSIZE * 2] + dataptr[DCTSIZE * 5];
+        -:  426:        tmp5 = dataptr[DCTSIZE * 2] - dataptr[DCTSIZE * 5];
+        -:  427:        tmp3 = dataptr[DCTSIZE * 3] + dataptr[DCTSIZE * 4];
+        -:  428:        tmp4 = dataptr[DCTSIZE * 3] - dataptr[DCTSIZE * 4];
+        -:  429:
+        -:  430:        /* Even part */
+        -:  431:        tmp10 = tmp0 + tmp3;  /* phase 2 */
+        -:  432:        tmp13 = tmp0 - tmp3;
+        -:  433:        tmp11 = tmp1 + tmp2;
+        -:  434:        tmp12 = tmp1 - tmp2;
+        -:  435:
+        -:  436:        dataptr[DCTSIZE * 0] = tmp10 + tmp11;  /* phase 3 */
+        -:  437:        dataptr[DCTSIZE * 4] = tmp10 - tmp11;
+        -:  438:
+        -:  439:        z1 = (tmp12 + tmp13) * 0.707106781f; /* c4 */
+        -:  440:        dataptr[DCTSIZE * 2] = tmp13 + z1;  /* phase 5 */
+        -:  441:        dataptr[DCTSIZE * 6] = tmp13 - z1;
+        -:  442:
+        -:  443:        /* Odd part */
+        -:  444:        tmp10 = tmp4 + tmp5;  /* phase 2 */
+        -:  445:        tmp11 = tmp5 + tmp6;
+        -:  446:        tmp12 = tmp6 + tmp7;
+        -:  447:
+        -:  448:        /* The rotator is modified from fig 4-8 to avoid extra negations. */
+        -:  449:        z5 = (tmp10 - tmp12) * 0.382683433f; /* c6 */
+        -:  450:        z2 = 0.541196100f * tmp10 + z5;      /* c2-c6 */
+        -:  451:        z4 = 1.306562965f * tmp12 + z5;      /* c2+c6 */
+        -:  452:        z3 = tmp11 * 0.707106781f;           /* c4 */
+        -:  453:
+        -:  454:        z11 = tmp7 + z3;  /* phase 5 */
+        -:  455:        z13 = tmp7 - z3;
+        -:  456:
+        -:  457:        dataptr[DCTSIZE * 5] = z13 + z2; /* phase 6 */
+        -:  458:        dataptr[DCTSIZE * 3] = z13 - z2;
+        -:  459:        dataptr[DCTSIZE * 1] = z11 + z4;
+        -:  460:        dataptr[DCTSIZE * 7] = z11 - z4;
+        -:  461:
+        -:  462:        dataptr++;  /* advance pointer to next column */
+        -:  463:    }
+        -:  464:}
+        -:  465:
+        -:  466:void idct2d8x8(float *data)
+        -:  467:{
+        -:  468:    float  tmp0,  tmp1,  tmp2,  tmp3;
+        -:  469:    float  tmp4,  tmp5,  tmp6,  tmp7;
+        -:  470:    float  tmp10, tmp11, tmp12, tmp13;
+        -:  471:    float  z5, z10, z11, z12, z13;
+        -:  472:    float *dataptr;
+        -:  473:    int    ctr;
+        -:  474:
+        -:  475:    /* Pass 1: process rows. */
+        -:  476:    dataptr = data;
+        -:  477:    for (ctr=0; ctr<DCTSIZE; ctr++)
+        -:  478:    {
+        -:  479:        /* Even part */
+        -:  480:        tmp0 = dataptr[0];
+        -:  481:        tmp1 = dataptr[2];
+        -:  482:        tmp2 = dataptr[4];
+        -:  483:        tmp3 = dataptr[6];
+        -:  484:
+        -:  485:        tmp10 = tmp0 + tmp2;    /* phase 3 */
+        -:  486:        tmp11 = tmp0 - tmp2;
+        -:  487:
+        -:  488:        tmp13  = tmp1 + tmp3;   /* phases 5-3 */
+        -:  489:        tmp12  = tmp1 - tmp3;   /* 2 * c4 */
+        -:  490:        tmp12 *= 1.414213562f;
+        -:  491:        tmp12 -= tmp13;
+        -:  492:
+        -:  493:        tmp0 = tmp10 + tmp13;   /* phase 2 */
+        -:  494:        tmp3 = tmp10 - tmp13;
+        -:  495:        tmp1 = tmp11 + tmp12;
+        -:  496:        tmp2 = tmp11 - tmp12;
+        -:  497:
+        -:  498:        /* Odd part */
+        -:  499:        tmp4 = dataptr[1];
+        -:  500:        tmp5 = dataptr[3];
+        -:  501:        tmp6 = dataptr[5];
+        -:  502:        tmp7 = dataptr[7];
+        -:  503:
+        -:  504:        z13 = tmp6 + tmp5;    /* phase 6 */
+        -:  505:        z10 = tmp6 - tmp5;
+        -:  506:        z11 = tmp4 + tmp7;
+        -:  507:        z12 = tmp4 - tmp7;
+        -:  508:
+        -:  509:        tmp7   = z11 + z13;   /* phase 5 */
+        -:  510:        tmp11  = z11 - z13;   /* 2 * c4 */
+        -:  511:        tmp11 *= 1.414213562f;
+        -:  512:
+        -:  513:        z5 = (z10 + z12) * 1.847759065f;  /*  2 * c2 */
+        -:  514:        tmp10 =  1.082392200f * z12 - z5; /*  2 * (c2 - c6) */
+        -:  515:        tmp12 = -2.613125930f * z10 + z5; /* -2 * (c2 + c6) */
+        -:  516:
+        -:  517:        tmp6 = tmp12 - tmp7;    /* phase 2 */
+        -:  518:        tmp5 = tmp11 - tmp6;
+        -:  519:        tmp4 = tmp10 + tmp5;
+        -:  520:
+        -:  521:        dataptr[0] = tmp0 + tmp7;
+        -:  522:        dataptr[7] = tmp0 - tmp7;
+        -:  523:        dataptr[1] = tmp1 + tmp6;
+        -:  524:        dataptr[6] = tmp1 - tmp6;
+        -:  525:        dataptr[2] = tmp2 + tmp5;
+        -:  526:        dataptr[5] = tmp2 - tmp5;
+        -:  527:        dataptr[4] = tmp3 + tmp4;
+        -:  528:        dataptr[3] = tmp3 - tmp4;
+        -:  529:
+        -:  530:        dataptr += DCTSIZE;
+        -:  531:    }
+        -:  532:
+        -:  533:    /* Pass 2: process columns. */
+        -:  534:    dataptr = data;
+        -:  535:    for (ctr=0; ctr<DCTSIZE; ctr++)
+        -:  536:    {
+        -:  537:        /* Even part */
+        -:  538:        tmp0 = dataptr[DCTSIZE * 0];
+        -:  539:        tmp1 = dataptr[DCTSIZE * 2];
+        -:  540:        tmp2 = dataptr[DCTSIZE * 4];
+        -:  541:        tmp3 = dataptr[DCTSIZE * 6];
+        -:  542:
+        -:  543:        tmp10 = tmp0 + tmp2;    /* phase 3 */
+        -:  544:        tmp11 = tmp0 - tmp2;
+        -:  545:
+        -:  546:        tmp13  = tmp1 + tmp3;   /* phases 5-3 */
+        -:  547:        tmp12  = tmp1 - tmp3;   /* 2 * c4 */
+        -:  548:        tmp12 *= 1.414213562f;
+        -:  549:        tmp12 -= tmp13;
+        -:  550:
+        -:  551:        tmp0 = tmp10 + tmp13;   /* phase 2 */
+        -:  552:        tmp3 = tmp10 - tmp13;
+        -:  553:        tmp1 = tmp11 + tmp12;
+        -:  554:        tmp2 = tmp11 - tmp12;
+        -:  555:
+        -:  556:        /* Odd part */
+        -:  557:        tmp4 = dataptr[DCTSIZE * 1];
+        -:  558:        tmp5 = dataptr[DCTSIZE * 3];
+        -:  559:        tmp6 = dataptr[DCTSIZE * 5];
+        -:  560:        tmp7 = dataptr[DCTSIZE * 7];
+        -:  561:
+        -:  562:        z13 = tmp6 + tmp5;    /* phase 6 */
+        -:  563:        z10 = tmp6 - tmp5;
+        -:  564:        z11 = tmp4 + tmp7;
+        -:  565:        z12 = tmp4 - tmp7;
+        -:  566:
+        -:  567:        tmp7   = z11 + z13;   /* phase 5 */
+        -:  568:        tmp11  = z11 - z13;   /* 2 * c4 */
+        -:  569:        tmp11 *= 1.414213562f;
+        -:  570:
+        -:  571:        z5 = (z10 + z12) * 1.847759065f;  /*  2 * c2 */
+        -:  572:        tmp10 =  1.082392200f * z12 - z5; /*  2 * (c2 - c6) */
+        -:  573:        tmp12 = -2.613125930f * z10 + z5; /* -2 * (c2 + c6) */
+        -:  574:
+        -:  575:        tmp6 = tmp12 - tmp7;    /* phase 2 */
+        -:  576:        tmp5 = tmp11 - tmp6;
+        -:  577:        tmp4 = tmp10 + tmp5;
+        -:  578:
+        -:  579:        dataptr[DCTSIZE * 0] = tmp0 + tmp7;
+        -:  580:        dataptr[DCTSIZE * 7] = tmp0 - tmp7;
+        -:  581:        dataptr[DCTSIZE * 1] = tmp1 + tmp6;
+        -:  582:        dataptr[DCTSIZE * 6] = tmp1 - tmp6;
+        -:  583:        dataptr[DCTSIZE * 2] = tmp2 + tmp5;
+        -:  584:        dataptr[DCTSIZE * 5] = tmp2 - tmp5;
+        -:  585:        dataptr[DCTSIZE * 4] = tmp3 + tmp4;
+        -:  586:        dataptr[DCTSIZE * 3] = tmp3 - tmp4;
+        -:  587:
+        -:  588:        dataptr++; /* advance pointers to next column */
+        -:  589:    }
+        -:  590:}
+        -:  591:
+        -:  592:/* how to use */
+        -:  593:static void dcttest(void)
+        -:  594:{
+        -:  595:    float data[64];
+        -:  596:    int   i;
+        -:  597:
+        -:  598:    /* FDCT */
+        -:  599:    fdct2d8x8(data);
+        -:  600:    for (i=0; i<64; i++) data[i] /= dctfactor[i];
+        -:  601:    for (i=0; i<64; i++) data[i] /= 8.0f;
+        -:  602:
+        -:  603:    /* IDCT */
+        -:  604:    for (i=0; i<64; i++) data[i] *= dctfactor[i];
+        -:  605:    idct2d8x8(data);
+        -:  606:    for (i=0; i<64; i++) data[i] /= 8.0f;
+        -:  607:}
+        -:  608:
+        -:  609:#endif
+        -:  610:
+        -:  611:#if 0 /* 矩阵变换版本 */
+        -:  612:/* 内部常量定义 */
+        -:  613:#define M_PI  3.14159265358979323846f
+        -:  614:
+        -:  615:/* 内部全局变量定义 */
+        -:  616:static float fdctmatrix[8][8] = {0};  /* fdct 变换矩阵 */
+        -:  617:static float idctmatrix[8][8] = {0};  /* idct 变换矩阵 */
+        -:  618:
+        -:  619:/* 内部函数定义 */
+        -:  620:static float c(int u)
+        -:  621:{
+        -:  622:    if (u == 0) return (float)sqrt(1.0f / 8.0f);
+        -:  623:    else        return (float)sqrt(2.0f / 8.0f);
+        -:  624:}
+        -:  625:
+        -:  626:/* 初始化 dct 变换矩阵 */
+        -:  627:void initdctmatrix(void)
+        -:  628:{
+        -:  629:    static int inited = 0;
+        -:  630:    int    u, x;
+        -:  631:
+        -:  632:    /* 避免重复初始化 */
+        -:  633:    if (inited) return;
+        -:  634:
+        -:  635:    /* init fdct matrix */
+        -:  636:    for (u=0; u<8; u++)
+        -:  637:    {
+        -:  638:        for (x=0; x<8; x++)
+        -:  639:        {
+        -:  640:            fdctmatrix[u][x] = (float)(c(u) * cos((2.0f * x + 1.0f) * u * M_PI / 16.0f));
+        -:  641:        }
+        -:  642:    }
+        -:  643:
+        -:  644:    /* init idct matrix */
+        -:  645:    for (u=0; u<8; u++)
+        -:  646:    {
+        -:  647:        for (x=0; x<8; x++)
+        -:  648:        {
+        -:  649:            idctmatrix[x][u] = (float)(c(u) * cos((2.0f * x + 1.0f) * u * M_PI / 16.0f));
+        -:  650:        }
+        -:  651:    }
+        -:  652:
+        -:  653:    inited = 1;
+        -:  654:}
+        -:  655:
+        -:  656:/* 1d 8-points forward dct */
+        -:  657:void fdct1d8(float *u, float *x)
+        -:  658:{
+        -:  659:    int i;
+        -:  660:    int j;
+        -:  661:
+        -:  662:    for (i=0; i<8; i++)
+        -:  663:    {
+        -:  664:        u[i] = 0.0f;
+        -:  665:        for (j=0; j<8; j++)
+        -:  666:        {
+        -:  667:            u[i] += fdctmatrix[i][j] * x[j];
+        -:  668:        }
+        -:  669:    }
+        -:  670:}
+        -:  671:
+        -:  672:/* 1d 8-points invert dct */
+        -:  673:void idct1d8(float *x, float *u)
+        -:  674:{
+        -:  675:    int i;
+        -:  676:    int j;
+        -:  677:
+        -:  678:    for (i=0; i<8; i++)
+        -:  679:    {
+        -:  680:        x[i] = 0.0f;
+        -:  681:        for (j=0; j<8; j++)
+        -:  682:        {
+        -:  683:            x[i] += idctmatrix[i][j] * u[j];
+        -:  684:        }
+        -:  685:    }
+        -:  686:}
+        -:  687:
+        -:  688:/* 2d 8x8 forward dct */
+        -:  689:void fdct2d8x8(float *data)
+        -:  690:{
+        -:  691:    float temp[64];
+        -:  692:    int   i, j;
+        -:  693:
+        -:  694:    /* 初始化变换矩阵 */
+        -:  695:    initdctmatrix();
+        -:  696:
+        -:  697:    /* 逐行进行 1d fdct */
+        -:  698:    for (i=0; i<8; i++)
+        -:  699:    {
+        -:  700:        fdct1d8(temp + 8 * i, data + 8 * i);
+        -:  701:    }
+        -:  702:
+        -:  703:    /* 转置矩阵 */
+        -:  704:    for (i=0; i<8; i++)
+        -:  705:        for (j=0; j<8; j++)
+        -:  706:            *(data + 8 * i + j) = *(temp + 8 * j + i);
+        -:  707:
+        -:  708:    /* 逐行进行 1d fdct */
+        -:  709:    for (i=0; i<8; i++)
+        -:  710:    {
+        -:  711:        fdct1d8(temp + 8 * i, data + 8 * i);
+        -:  712:    }
+        -:  713:
+        -:  714:    /* 转置矩阵 */
+        -:  715:    for (i=0; i<8; i++)
+        -:  716:        for (j=0; j<8; j++)
+        -:  717:            *(data + 8 * i + j) = *(temp + 8 * j + i);
+        -:  718:}
+        -:  719:
+        -:  720:/* 2d 8x8 invert dct */
+        -:  721:void idct2d8x8(float *data)
+        -:  722:{
+        -:  723:    float temp[64];
+        -:  724:    int   i, j;
+        -:  725:
+        -:  726:    /* 初始化变换矩阵 */
+        -:  727:    initdctmatrix();
+        -:  728:
+        -:  729:    /* 逐行进行 1d idct */
+        -:  730:    for (i=0; i<8; i++)
+        -:  731:    {
+        -:  732:        idct1d8(temp + 8 * i, data + 8 * i);
+        -:  733:    }
+        -:  734:
+        -:  735:    /* 转置矩阵 */
+        -:  736:    for (i=0; i<8; i++)
+        -:  737:        for (j=0; j<8; j++)
+        -:  738:            *(data + 8 * i + j) = *(temp + 8 * j + i);
+        -:  739:
+        -:  740:    /* 逐行进行 1d idct */
+        -:  741:    for (i=0; i<8; i++)
+        -:  742:    {
+        -:  743:        idct1d8(temp + 8 * i, data + 8 * i);
+        -:  744:    }
+        -:  745:
+        -:  746:    /* 转置矩阵 */
+        -:  747:    for (i=0; i<8; i++)
+        -:  748:        for (j=0; j<8; j++)
+        -:  749:            *(data + 8 * i + j) = *(temp + 8 * j + i);
+        -:  750:}
+        -:  751:#endif
+        -:  752:
+        -:  753:#if 0 /* 数学表达式版本 */
+        -:  754:/* 内部常量定义 */
+        -:  755:#define M_PI  3.14159265358979323846f
+        -:  756:
+        -:  757:/* 函数实现 */
+        -:  758:static float alpha(int n)
+        -:  759:{
+        -:  760:    if (n == 0) return 1.0f / (float)sqrt(8);
+        -:  761:    else        return 1.0f / 2.0f;
+        -:  762:}
+        -:  763:
+        -:  764:void fdct2d8x8(float *data)
+        -:  765:{
+        -:  766:    int u, v;
+        -:  767:    int x, y, i;
+        -:  768:    float buf[64];
+        -:  769:    float temp;
+        -:  770:
+        -:  771:    for (u=0; u<8; u++)
+        -:  772:    {
+        -:  773:        for (v=0; v<8; v++)
+        -:  774:        {
+        -:  775:            temp = 0;
+        -:  776:            for (x=0; x<8; x++)
+        -:  777:            {
+        -:  778:                for (y=0; y<8; y++)
+        -:  779:                {
+        -:  780:                    temp += data[y * 8 + x]
+        -:  781:                          * (float)cos((2.0f * x + 1.0f) / 16.0f * u * M_PI)
+        -:  782:                          * (float)cos((2.0f * y + 1.0f) / 16.0f * v * M_PI);
+        -:  783:                }
+        -:  784:            }
+        -:  785:            buf[v * 8 + u] = alpha(u) * alpha(v) * temp;
+        -:  786:        }
+        -:  787:    }
+        -:  788:
+        -:  789:    for (i=0; i<64; i++) data[i] = buf[i];
+        -:  790:}
+        -:  791:
+        -:  792:void idct2d8x8(float *data)
+        -:  793:{
+        -:  794:    int u, v;
+        -:  795:    int x, y, i;
+        -:  796:    float buf[64];
+        -:  797:    float temp;
+        -:  798:
+        -:  799:    for (x=0; x<8; x++)
+        -:  800:    {
+        -:  801:        for (y=0; y<8; y++)
+        -:  802:        {
+        -:  803:            temp = 0;
+        -:  804:            for (u=0; u<8; u++)
+        -:  805:            {
+        -:  806:                for (v=0; v<8; v++)
+        -:  807:                {
+        -:  808:                    temp += alpha(u) * alpha(v) * (data[v * 8 + u]
+        -:  809:                          * (float)cos((2.0f * x + 1.0f) / 16.0f * u * M_PI)
+        -:  810:                          * (float)cos((2.0f * y + 1.0f) / 16.0f * v * M_PI));
+        -:  811:                }
+        -:  812:            }
+        -:  813:            buf[y * 8 + x] = (char)(temp + 0.5);
+        -:  814:        }
+        -:  815:    }
+        -:  816:
+        -:  817:    for (i=0; i<64; i++) data[i] = buf[i];
+        -:  818:}
+        -:  819:#endif
