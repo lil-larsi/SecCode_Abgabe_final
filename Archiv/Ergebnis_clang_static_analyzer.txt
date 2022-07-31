@@ -1,0 +1,4 @@
+scan-build: Using '/usr/lib/llvm-10/bin/clang' for static analysis
+make: Für das Ziel „all“ ist nichts zu tun.
+scan-build: Removing directory '/tmp/scan-build-2022-07-15-190459-2795-1' because it contains no reports.
+scan-build: No bugs found.

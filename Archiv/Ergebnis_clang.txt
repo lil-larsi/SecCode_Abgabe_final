@@ -1,0 +1,323 @@
+In file included from bitstr.c:4:
+./stdefine.h:3:9: warning: macro name is a reserved identifier [-Wreserved-id-macro]
+#define __STDEFINE_H__
+        ^
+In file included from bitstr.c:5:
+./bitstr.h:2:9: warning: macro name is a reserved identifier [-Wreserved-id-macro]
+#define __FFJPEG_BITSTR_H__
+        ^
+bitstr.c:22:11: warning: padding struct 'MBITSTR' with 4 bytes to align 'membuf' [-Wpadded]
+    BYTE *membuf;
+          ^
+bitstr.c:57:50: warning: implicit conversion loses integer precision: 'int' to 'BYTE' (aka 'unsigned char') [-Wimplicit-int-conversion]
+    return (context->membuf[context->curpos++] = c);
+                                               ~ ^
+bitstr.c:67:29: warning: implicit conversion loses integer precision: 'long' to 'int' [-Wshorten-64-to-32]
+    case SEEK_SET: newpos = offset; break;
+                          ~ ^~~~~~
+bitstr.c:68:45: warning: implicit conversion loses integer precision: 'long' to 'int' [-Wshorten-64-to-32]
+    case SEEK_CUR: newpos = context->curpos + offset; break;
+                          ~ ~~~~~~~~~~~~~~~~^~~~~~~~
+bitstr.c:69:45: warning: implicit conversion loses integer precision: 'long' to 'int' [-Wshorten-64-to-32]
+    case SEEK_END: newpos = context->memlen + offset; break;
+                          ~ ~~~~~~~~~~~~~~~~^~~~~~~~
+bitstr.c:99:11: warning: padding struct 'FBITSTR' with 4 bytes to align 'fp' [-Wpadded]
+    FILE *fp;
+          ^
+bitstr.c:254:31: warning: implicit conversion changes signedness: 'int' to 'DWORD' (aka 'unsigned int') [-Wsign-conversion]
+            context->bitbuf = bitstr_getc(stream);
+                            ~ ^~~~~~~~~~~~~~~~~~~
+bitstr.c:256:34: warning: comparison of integers of different signs: 'DWORD' (aka 'unsigned int') and 'int' [-Wsign-compare]
+        } while (context->bitbuf != EOF && context->bitbuf == 0xff);
+                 ~~~~~~~~~~~~~~~ ^  ~~~
+bitstr.c:262:29: warning: comparison of integers of different signs: 'DWORD' (aka 'unsigned int') and 'int' [-Wsign-compare]
+        if (context->bitbuf == EOF) {
+            ~~~~~~~~~~~~~~~ ^  ~~~
+bitstr.c:279:25: warning: implicit conversion changes signedness: 'int' to 'unsigned int' [-Wsign-conversion]
+    context->bitbuf  |= b;
+                     ~~ ^
+bitstr.c:311:25: warning: implicit conversion changes signedness: 'int' to 'unsigned int' [-Wsign-conversion]
+    unsigned buf = bits << (32 - n);
+             ~~~   ~~~~~^~~~~~~~~~~
+13 warnings generated.
+In file included from bmp.c:4:
+./stdefine.h:3:9: warning: macro name is a reserved identifier [-Wreserved-id-macro]
+#define __STDEFINE_H__
+        ^
+In file included from bmp.c:5:
+./bmp.h:2:9: warning: macro name is a reserved identifier [-Wreserved-id-macro]
+#define __FFJPEG_BMP_H__
+        ^
+bmp.c:48:50: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+    pb->pdata  = malloc((size_t)pb->stride * pb->height);
+                                           ~ ~~~~^~~~~~
+bmp.c:53:30: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+            fread(pdata, pb->stride, 1, fp);
+            ~~~~~        ~~~~^~~~~~
+In file included from bmp.c:5:
+./bmp.h:14:11: warning: padding struct 'BMP' with 4 bytes to align 'pdata' [-Wpadded]
+    void *pdata;   /* ָ<CF><F2><CA><FD><BE><DD> */
+          ^
+bmp.c:67:46: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+    pb->pdata  = malloc((size_t)pb->stride * h);
+                                           ~ ^
+bmp.c:79:53: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+    header.bfSize     = sizeof(header) + pb->stride * pb->height;
+                                       ~ ~~~~~~~~~~~^~~~~~~~~~~~
+bmp.c:82:29: warning: implicit conversion changes signedness: 'int' to 'DWORD' (aka 'unsigned int') [-Wsign-conversion]
+    header.biWidth    = pb->width;
+                      ~ ~~~~^~~~~
+bmp.c:83:29: warning: implicit conversion changes signedness: 'int' to 'DWORD' (aka 'unsigned int') [-Wsign-conversion]
+    header.biHeight   = pb->height;
+                      ~ ~~~~^~~~~~
+bmp.c:86:36: warning: implicit conversion changes signedness: 'int' to 'DWORD' (aka 'unsigned int') [-Wsign-conversion]
+    header.biSizeImage= pb->stride * pb->height;
+                      ~ ~~~~~~~~~~~^~~~~~~~~~~~
+bmp.c:94:31: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+            fwrite(pdata, pb->stride, 1, fp);
+            ~~~~~~        ~~~~^~~~~~
+11 warnings generated.
+In file included from color.c:2:
+./color.h:2:9: warning: macro name is a reserved identifier [-Wreserved-id-macro]
+#define __FFJPEG_COLOR_H__
+        ^
+In file included from color.c:2:
+In file included from ./color.h:5:
+./stdefine.h:3:9: warning: macro name is a reserved identifier [-Wreserved-id-macro]
+#define __STDEFINE_H__
+        ^
+color.c:25:34: warning: implicit conversion loses integer precision: 'int' to 'BYTE' (aka 'unsigned char') [-Wimplicit-int-conversion]
+    *r = tr < 0 ? 0 : tr < 255 ? tr : 255;
+       ~                         ^~
+color.c:26:34: warning: implicit conversion loses integer precision: 'int' to 'BYTE' (aka 'unsigned char') [-Wimplicit-int-conversion]
+    *g = tg < 0 ? 0 : tg < 255 ? tg : 255;
+       ~                         ^~
+color.c:27:34: warning: implicit conversion loses integer precision: 'int' to 'BYTE' (aka 'unsigned char') [-Wimplicit-int-conversion]
+    *b = tb < 0 ? 0 : tb < 255 ? tb : 255;
+       ~                         ^~
+5 warnings generated.
+In file included from dct.c:2:
+./stdefine.h:3:9: warning: macro name is a reserved identifier [-Wreserved-id-macro]
+#define __STDEFINE_H__
+        ^
+In file included from dct.c:3:
+./dct.h:2:9: warning: macro name is a reserved identifier [-Wreserved-id-macro]
+#define __FFJPEG_DCT_H__
+        ^
+dct.c:59:41: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+        ftab[i] = FLOAT2FIX(factor[i] / qtab[i]);
+                                      ~ ^~~~~~~
+./stdefine.h:20:31: note: expanded from macro 'FLOAT2FIX'
+#define FLOAT2FIX(f)  ((int)((f) * (1 << 11)))
+                              ^
+dct.c:73:41: warning: implicit conversion from 'int' to 'float' may lose precision [-Wimplicit-int-float-conversion]
+        ftab[i] = FLOAT2FIX(factor[i] * qtab[i]);
+                                      ~ ^~~~~~~
+./stdefine.h:20:31: note: expanded from macro 'FLOAT2FIX'
+#define FLOAT2FIX(f)  ((int)((f) * (1 << 11)))
+                              ^
+4 warnings generated.
+In file included from ffjpeg.c:5:
+./jfif.h:2:9: warning: macro name is a reserved identifier [-Wreserved-id-macro]
+#define __FFJPEG_JFIF_H__
+        ^
+In file included from ffjpeg.c:5:
+In file included from ./jfif.h:5:
+./bmp.h:2:9: warning: macro name is a reserved identifier [-Wreserved-id-macro]
+#define __FFJPEG_BMP_H__
+        ^
+./bmp.h:14:11: warning: padding struct 'BMP' with 4 bytes to align 'pdata' [-Wpadded]
+    void *pdata;   /* ָ<CF><F2><CA><FD><BE><DD> */
+          ^
+3 warnings generated.
+In file included from huffman.c:5:
+./bitstr.h:2:9: warning: macro name is a reserved identifier [-Wreserved-id-macro]
+#define __FFJPEG_BITSTR_H__
+        ^
+In file included from huffman.c:6:
+./huffman.h:2:9: warning: macro name is a reserved identifier [-Wreserved-id-macro]
+#define __FFJPEG_HUFFMAN_H__
+        ^
+In file included from huffman.c:6:
+In file included from ./huffman.h:5:
+./stdefine.h:3:9: warning: macro name is a reserved identifier [-Wreserved-id-macro]
+#define __STDEFINE_H__
+        ^
+huffman.c:14:27: warning: cast from 'const void *' to 'HUFCODEITEM *' drops const qualifier [-Wcast-qual]
+    return ((HUFCODEITEM*)a)->freq - ((HUFCODEITEM*)b)->freq;
+                          ^
+huffman.c:14:53: warning: cast from 'const void *' to 'HUFCODEITEM *' drops const qualifier [-Wcast-qual]
+    return ((HUFCODEITEM*)a)->freq - ((HUFCODEITEM*)b)->freq;
+                                                    ^
+huffman.c:19:27: warning: cast from 'const void *' to 'HUFCODEITEM *' drops const qualifier [-Wcast-qual]
+    return ((HUFCODEITEM*)a)->depth - ((HUFCODEITEM*)b)->depth;
+                          ^
+huffman.c:19:54: warning: cast from 'const void *' to 'HUFCODEITEM *' drops const qualifier [-Wcast-qual]
+    return ((HUFCODEITEM*)a)->depth - ((HUFCODEITEM*)b)->depth;
+                                                     ^
+huffman.c:72:39: warning: comparison of integers of different signs: 'int' and 'unsigned long' [-Wsign-compare]
+        if (codelist[(BYTE)data].freq < MAX_STAT_FREQ_NUM) {
+            ~~~~~~~~~~~~~~~~~~~~~~~~~ ^ ~~~~~~~~~~~~~~~~~
+huffman.c:165:21: warning: implicit conversion changes signedness: 'int' to 'size_t' (aka 'unsigned long') [-Wsign-conversion]
+    qsort(templist, n, sizeof(HUFCODEITEM), cmp_depth_item);
+    ~~~~~           ^
+huffman.c:176:56: warning: implicit conversion loses integer precision: 'int' to 'BYTE' (aka 'unsigned char') [-Wimplicit-int-conversion]
+        huftab[i + MAX_HUFFMAN_CODE_LEN] = templist[i].symbol;
+                                         ~ ~~~~~~~~~~~~^~~~~~
+huffman.c:228:28: warning: implicit conversion loses integer precision: 'int' to 'BYTE' (aka 'unsigned char') [-Wimplicit-int-conversion]
+            hufsize[k] = i + 1;
+                       ~ ~~^~~
+huffman.c:291:32: warning: implicit conversion changes signedness: 'int' to 'unsigned int' [-Wsign-conversion]
+    code = phc->codelist[data].code ;
+         ~ ~~~~~~~~~~~~~~~~~~~~^~~~
+huffman.c:293:45: warning: implicit conversion changes signedness: 'unsigned int' to 'int' [-Wsign-conversion]
+    if (EOF == bitstr_put_bits(phc->output, code, len)) {
+               ~~~~~~~~~~~~~~~              ^~~~
+huffman.c:328:36: warning: unused parameter 'phc' [-Wunused-parameter]
+void huffman_decode_done(HUFCODEC *phc)
+                                   ^
+14 warnings generated.
+In file included from jfif.c:5:
+./stdefine.h:3:9: warning: macro name is a reserved identifier [-Wreserved-id-macro]
+#define __STDEFINE_H__
+        ^
+In file included from jfif.c:6:
+./bitstr.h:2:9: warning: macro name is a reserved identifier [-Wreserved-id-macro]
+#define __FFJPEG_BITSTR_H__
+        ^
+In file included from jfif.c:7:
+./huffman.h:2:9: warning: macro name is a reserved identifier [-Wreserved-id-macro]
+#define __FFJPEG_HUFFMAN_H__
+        ^
+In file included from jfif.c:8:
+./quant.h:2:9: warning: macro name is a reserved identifier [-Wreserved-id-macro]
+#define __FFJPEG_QUANT_H__
+        ^
+In file included from jfif.c:9:
+./zigzag.h:2:9: warning: macro name is a reserved identifier [-Wreserved-id-macro]
+#define __FFJPEG_ZIGZAG_H__
+        ^
+In file included from jfif.c:10:
+./dct.h:2:9: warning: macro name is a reserved identifier [-Wreserved-id-macro]
+#define __FFJPEG_DCT_H__
+        ^
+In file included from jfif.c:11:
+./bmp.h:2:9: warning: macro name is a reserved identifier [-Wreserved-id-macro]
+#define __FFJPEG_BMP_H__
+        ^
+In file included from jfif.c:12:
+./color.h:2:9: warning: macro name is a reserved identifier [-Wreserved-id-macro]
+#define __FFJPEG_COLOR_H__
+        ^
+In file included from jfif.c:13:
+./jfif.h:2:9: warning: macro name is a reserved identifier [-Wreserved-id-macro]
+#define __FFJPEG_JFIF_H__
+        ^
+jfif.c:122:21: warning: implicit conversion changes signedness: 'int' to 'unsigned int' [-Wsign-conversion]
+    unsigned absc = abs(*code);
+             ~~~~   ^~~~~~~~~~
+jfif.c:128:48: warning: implicit conversion changes signedness: 'unsigned int' to 'int' [-Wsign-conversion]
+    if (*code < 0) *code = (1 << *size) - absc - 1;
+                         ~ ~~~~~~~~~~~~~~~~~~~~^~~
+jfif.c:175:35: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+        size = (int)fread(buf, 1, size, fp);
+                    ~~~~~         ^~~~
+jfif.c:230:89: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+                    if ( jfif->phcac[idx]) memcpy(jfif->phcac[idx]->huftab, &dht[1], 16 + len);
+                                           ~~~~~~                                    ~~~^~~~~
+jfif.c:233:89: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+                    if ( jfif->phcdc[idx]) memcpy(jfif->phcdc[idx]->huftab, &dht[1], 16 + len);
+                                           ~~~~~~                                    ~~~^~~~~
+jfif.c:245:34: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+    jfif->databuf = malloc(jfif->datalen);
+                    ~~~~~~ ~~~~~~^~~~~~~
+jfif.c:248:39: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+        fread(jfif->databuf, 1, jfif->datalen, fp);
+        ~~~~~                   ~~~~~~^~~~~~~
+jfif.c:244:31: warning: implicit conversion loses integer precision: 'long' to 'int' [-Wshorten-64-to-32]
+    jfif->datalen = ftell(fp) - offset;
+                  ~ ~~~~~~~~~~^~~~~~~~
+jfif.c:319:44: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+        fwrite(jfif->phcac[i]->huftab, len - 3, 1, fp);
+        ~~~~~~                         ~~~~^~~
+jfif.c:332:44: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+        fwrite(jfif->phcdc[i]->huftab, len - 3, 1, fp);
+        ~~~~~~                         ~~~~^~~
+jfif.c:352:37: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+        fwrite(jfif->databuf, jfif->datalen, 1, fp);
+        ~~~~~~                ~~~~~~^~~~~~~
+jfif.c:442:42: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+    yuv_datbuf[0] = malloc(sizeof(int) * yuv_stride[0] * yuv_height[0]);
+                                       ~ ^~~~~~~~~~~~~
+jfif.c:442:58: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+    yuv_datbuf[0] = malloc(sizeof(int) * yuv_stride[0] * yuv_height[0]);
+                                                       ~ ^~~~~~~~~~~~~
+jfif.c:443:42: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+    yuv_datbuf[1] = malloc(sizeof(int) * yuv_stride[1] * yuv_height[1]);
+                                       ~ ^~~~~~~~~~~~~
+jfif.c:443:58: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+    yuv_datbuf[1] = malloc(sizeof(int) * yuv_stride[1] * yuv_height[1]);
+                                                       ~ ^~~~~~~~~~~~~
+jfif.c:444:42: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+    yuv_datbuf[2] = malloc(sizeof(int) * yuv_stride[2] * yuv_height[2]);
+                                       ~ ^~~~~~~~~~~~~
+jfif.c:444:58: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+    yuv_datbuf[2] = malloc(sizeof(int) * yuv_stride[2] * yuv_height[2]);
+                                                       ~ ^~~~~~~~~~~~~
+jfif.c:445:42: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+    yuv_datbuf[3] = malloc(sizeof(int) * yuv_stride[3] * yuv_height[3]);
+                                       ~ ^~~~~~~~~~~~~
+jfif.c:445:58: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+    yuv_datbuf[3] = malloc(sizeof(int) * yuv_stride[3] * yuv_height[3]);
+                                                       ~ ^~~~~~~~~~~~~
+In file included from jfif.c:11:
+./bmp.h:14:11: warning: padding struct 'BMP' with 4 bytes to align 'pdata' [-Wpadded]
+    void *pdata;   /* ָ<CF><F2><CA><FD><BE><DD> */
+          ^
+jfif.c:583:9: warning: padding size of 'RLEITEM' with 1 byte to alignment boundary [-Wpadded]
+typedef struct {
+        ^
+jfif.c:627:35: warning: implicit conversion changes signedness: 'int' to 'unsigned int' [-Wsign-conversion]
+            rlelist[j].runlen   = n;
+                                ~ ^
+jfif.c:628:35: warning: implicit conversion changes signedness: 'int' to 'unsigned int' [-Wsign-conversion]
+            rlelist[j].codesize = size;
+                                ~ ^~~~
+jfif.c:629:35: warning: implicit conversion changes signedness: 'int' to 'unsigned int' [-Wsign-conversion]
+            rlelist[j].codedata = code;
+                                ~ ^~~~
+jfif.c:688:35: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+    jfif->databuf  = malloc(jfif->datalen);
+                     ~~~~~~ ~~~~~~^~~~~~~
+jfif.c:741:45: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+    yuv_datbuf[0] = calloc(1, sizeof(int) * jw * jh / 1);
+                                          ~ ^~
+jfif.c:741:50: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+    yuv_datbuf[0] = calloc(1, sizeof(int) * jw * jh / 1);
+                                               ~ ^~
+jfif.c:742:45: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+    yuv_datbuf[1] = calloc(1, sizeof(int) * jw * jh / 4);
+                                          ~ ^~
+jfif.c:742:50: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+    yuv_datbuf[1] = calloc(1, sizeof(int) * jw * jh / 4);
+                                               ~ ^~
+jfif.c:743:45: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+    yuv_datbuf[2] = calloc(1, sizeof(int) * jw * jh / 4);
+                                          ~ ^~
+jfif.c:743:50: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+    yuv_datbuf[2] = calloc(1, sizeof(int) * jw * jh / 4);
+                                               ~ ^~
+jfif.c:851:21: warning: implicit conversion loses integer precision: 'long' to 'int' [-Wshorten-64-to-32]
+    jfif->datalen = bitstr_tell(bs);
+                  ~ ^~~~~~~~~~~~~~~
+41 warnings generated.
+In file included from quant.c:2:
+./quant.h:2:9: warning: macro name is a reserved identifier [-Wreserved-id-macro]
+#define __FFJPEG_QUANT_H__
+        ^
+1 warning generated.
+In file included from zigzag.c:2:
+./zigzag.h:2:9: warning: macro name is a reserved identifier [-Wreserved-id-macro]
+#define __FFJPEG_ZIGZAG_H__
+        ^
+1 warning generated.

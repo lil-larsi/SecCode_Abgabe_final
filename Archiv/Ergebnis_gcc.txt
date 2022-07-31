@@ -1,0 +1,15 @@
+bitstr.c: In function ‘bitstr_getb’:
+bitstr.c:256:34: warning: comparison of integer expressions of different signedness: ‘DWORD’ {aka ‘unsigned int’} and ‘int’ [-Wsign-compare]
+  256 |         } while (context->bitbuf != EOF && context->bitbuf == 0xff);
+      |                                  ^~
+bitstr.c:262:29: warning: comparison of integer expressions of different signedness: ‘DWORD’ {aka ‘unsigned int’} and ‘int’ [-Wsign-compare]
+  262 |         if (context->bitbuf == EOF) {
+      |                             ^~
+huffman.c: In function ‘huffman_stat_freq’:
+huffman.c:72:39: warning: comparison of integer expressions of different signedness: ‘int’ and ‘long unsigned int’ [-Wsign-compare]
+   72 |         if (codelist[(BYTE)data].freq < MAX_STAT_FREQ_NUM) {
+      |                                       ^
+huffman.c: In function ‘huffman_decode_done’:
+huffman.c:328:36: warning: unused parameter ‘phc’ [-Wunused-parameter]
+  328 | void huffman_decode_done(HUFCODEC *phc)
+      |                          ~~~~~~~~~~^~~

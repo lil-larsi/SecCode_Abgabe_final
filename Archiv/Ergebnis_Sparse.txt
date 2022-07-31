@@ -1,0 +1,102 @@
+huffman.h:110:2: error: unmatched #endif in stream
+huffman.h:1:1: error: Expected ; at the end of type declaration
+huffman.h:1:1: error: got �
+stdefine.h:13:18: error: Expected ; at end of declaration
+stdefine.h:13:18: error: got BYTE
+huffman.h:14:19: error: Expected ; at end of declaration
+huffman.h:14:19: error: got STD_HUFTAB_LUMIN_AC
+huffman.h:15:19: error: Expected ; at end of declaration
+huffman.h:15:19: error: got STD_HUFTAB_LUMIN_DC
+huffman.h:16:19: error: Expected ; at end of declaration
+huffman.h:16:19: error: got STD_HUFTAB_CHROM_AC
+huffman.h:17:19: error: Expected ; at end of declaration
+huffman.h:17:19: error: got STD_HUFTAB_CHROM_DC
+huffman.h:31:18: error: expected ; at end of declaration
+huffman.h:31:18: error: Expected } at end of specifier
+huffman.h:31:18: error: got huftab
+huffman.h:37:1: error: Expected ; at the end of type declaration
+huffman.h:37:1: error: got }
+huffman.h:69:35: error: Expected ) in function declarator
+huffman.h:69:35: error: got *
+huffman.h:70:35: error: Expected ) in function declarator
+huffman.h:70:35: error: got *
+huffman.h:71:35: error: Expected ) in function declarator
+huffman.h:71:35: error: got *
+huffman.h:74:35: error: Expected ) in function declarator
+huffman.h:74:35: error: got *
+huffman.h:99:35: error: Expected ) in function declarator
+huffman.h:99:35: error: got *
+huffman.h:100:35: error: Expected ) in function declarator
+huffman.h:100:35: error: got *
+huffman.h:101:35: error: Expected ) in function declarator
+huffman.h:101:35: error: got *
+huffman.h:104:35: error: Expected ) in function declarator
+huffman.h:104:35: error: got *
+huffman.c:72:28: error: Expected ] at end of array dereference
+huffman.c:72:28: error: got data
+huffman.c:87:1: error: Expected ; at the end of type declaration
+huffman.c:87:1: error: got }
+huffman.c:94:17: error: Expected ; at end of declaration
+huffman.c:94:17: error: got *
+huffman.c:101:38: error: Expected ) in function declarator
+huffman.c:101:38: error: got (
+huffman.c:104:19: error: Expected ) in function declarator
+huffman.c:104:19: error: got ,
+huffman.c:108:11: error: Expected ) in function declarator
+huffman.c:108:11: error: got =
+huffman.c:108:5: error: Trying to use reserved word 'for' as identifier
+huffman.c:108:16: error: Expected ; at end of declaration
+huffman.c:108:16: error: got <
+huffman.c:108:44: error: Expected ; at end of declaration
+huffman.c:108:44: error: got ++
+huffman.c:116:17: error: Expected ) in function declarator
+huffman.c:116:17: error: got <
+huffman.c:116:5: error: Trying to use reserved word 'while' as identifier
+huffman.c:124:20: error: Expected ; at end of declaration
+huffman.c:124:20: error: got <
+huffman.c:124:28: error: Expected ; at end of declaration
+huffman.c:124:28: error: got ++
+huffman.c:129:28: error: Expected ; at end of declaration
+huffman.c:129:28: error: got .
+huffman.c:130:13: error: Expected ; at the end of type declaration
+huffman.c:130:13: error: got }
+huffman.c:140:27: error: Expected ; at end of declaration
+huffman.c:140:27: error: got .
+huffman.c:141:27: error: Expected ; at end of declaration
+huffman.c:141:27: error: got .
+huffman.c:142:27: error: Expected ; at end of declaration
+huffman.c:142:27: error: got .
+huffman.c:143:27: error: Expected ; at end of declaration
+huffman.c:143:27: error: got .
+huffman.c:145:14: error: Expected ; at end of declaration
+huffman.c:145:14: error: got ++
+huffman.c:146:14: error: Expected ; at end of declaration
+huffman.c:146:14: error: got ++
+huffman.c:154:15: error: Expected ) in function declarator
+huffman.c:154:15: error: got =
+huffman.c:154:9: error: Trying to use reserved word 'for' as identifier
+huffman.c:154:23: error: Expected ; at end of declaration
+huffman.c:154:23: error: got <
+huffman.c:154:30: error: Expected ; at end of declaration
+huffman.c:154:30: error: got ++
+huffman.c:157:24: error: Expected ) in function declarator
+huffman.c:157:24: error: got &
+huffman.c:158:24: error: Expected ) in function declarator
+huffman.c:158:24: error: got &
+huffman.c:159:24: error: Expected ) in function declarator
+huffman.c:159:24: error: got &
+huffman.c:160:13: error: Expected ; at the end of type declaration
+huffman.c:160:13: error: got }
+huffman.c:161:9: error: Expected ; at the end of type declaration
+huffman.c:161:9: error: got }
+huffman.c:173:18: error: Expected ) in function declarator
+huffman.c:173:18: error: got ,
+huffman.c:174:11: error: Expected ) in function declarator
+huffman.c:174:11: error: got =
+huffman.c:174:5: error: Trying to use reserved word 'for' as identifier
+huffman.c:174:16: error: Expected ; at end of declaration
+huffman.c:174:16: error: got <
+huffman.c:174:21: error: Expected ; at end of declaration
+huffman.c:174:21: error: got ++
+huffman.c:177:5: error: Expected ; at the end of type declaration
+huffman.c:177:5: error: too many errors
